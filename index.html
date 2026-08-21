@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Explorers Workshop</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --surface-page:   #f9f9f7;
+    --surface-card:   #ffffff;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --agree:          #2a78d6;
+    --disagree:       #e34948;
+    --neutral:        #898781;
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --tooltip-bg:     #0b0b0b;
+    --tooltip-text:   #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --surface-page:   #0d0d0d;
+      --surface-card:   #212120;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --agree:          #3987e5;
+      --disagree:       #e66767;
+      --neutral:        #898781;
+      --good:           #0ca30c;
+      --warning:        #fab219;
+      --tooltip-bg:     #ffffff;
+      --tooltip-text:   #0b0b0b;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --surface-page:   #0d0d0d;
+    --surface-card:   #212120;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --agree:          #3987e5;
+    --disagree:       #e66767;
+    --neutral:        #898781;
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --tooltip-bg:     #ffffff;
+    --tooltip-text:   #0b0b0b;
+  }
+
+  .viz-root {
+    background: var(--surface-page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 20px 60px;
+    box-sizing: border-box;
+  }
+  .viz-root * { box-sizing: border-box; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  header.page-head { margin-bottom: 28px; }
+  header.page-head h1 { font-size: 24px; font-weight: 650; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.page-head p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .kpi .label { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 8px; }
+  .kpi .value { font-size: 30px; font-weight: 650; line-height: 1; }
+  .kpi .sub { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+  .kpi.flag .value { color: var(--warning); }
+
+  .card {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px 22px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; font-weight: 650; margin: 0 0 2px; }
+  .card .card-sub { font-size: 12.5px; color: var(--text-muted); margin: 0 0 16px; }
+
+  .legend { display: flex; gap: 16px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .legend .item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+
+  .row { display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  .row .rlabel { font-size: 13px; color: var(--text-primary); }
+  .stack {
+    position: relative;
+    height: 22px;
+    display: flex;
+    background: var(--gridline);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg {
+    height: 100%;
+    position: relative;
+    cursor: default;
+  }
+  .seg + .seg { margin-left: 2px; }
+  .seg .seg-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .seg.disagree { background: var(--disagree); border-radius: 4px 0 0 4px; }
+  .seg.neutral  { background: var(--neutral); }
+  .seg.agree    { background: var(--agree); border-radius: 0 4px 4px 0; }
+  .seg.disagree:first-child { border-radius: 4px 0 0 4px; }
+  .seg.agree:last-child { border-radius: 0 4px 4px 0; }
+
+  .simple-row { display: grid; grid-template-columns: 170px 1fr 70px; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .simple-row:last-child { margin-bottom: 0; }
+  .simple-row .rlabel { font-size: 13px; color: var(--text-primary); display:flex; align-items:center; gap:8px; }
+  .simple-row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .simple-track { height: 20px; background: var(--gridline); border-radius: 4px; overflow: hidden; }
+  .simple-fill { height: 100%; border-radius: 4px; }
+  .simple-row .count { font-size: 12.5px; color: var(--text-secondary); text-align: right; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 720px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 140px 1fr; }
+    .simple-row { grid-template-columns: 120px 1fr 55px; }
+  }
+
+  .theme-list { margin: 0; padding-left: 18px; }
+  .theme-list li { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.5; }
+  .theme-list li b { color: var(--text-primary); font-weight: 600; }
+  .quote { font-size: 12.5px; color: var(--text-muted); font-style: italic; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--gridline); }
+
+  .toggle-btn {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .toggle-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 14px; }
+  table.data-table th, table.data-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--gridline); }
+  table.data-table th { color: var(--text-muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.02em; }
+  table.data-table td { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  table.data-table td:first-child, table.data-table th:first-child { color: var(--text-primary); font-variant-numeric: normal; }
+  #tableSection { display: none; }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    font-size: 12px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.08s ease;
+    white-space: nowrap;
+  }
+
+  footer.foot { margin-top: 24px; font-size: 11.5px; color: var(--text-muted); text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="viz-root">
+  <div class="wrap">
+    <header class="page-head">
+      <h1>Data Explorers Workshop — Post-Workshop Survey</h1>
+      <p>18 responses · collected 20 Aug 2026 · Databricks / DAP training session</p>
+    </header>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="label">Survey responses</div>
+        <div class="value">18</div>
+        <div class="sub">18 sent · 0 errors</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Would recommend the workshop</div>
+        <div class="value">100%</div>
+        <div class="sub">18 of 18 rated Agree or Strongly Agree</div>
+      </div>
+      <div class="kpi flag">
+        <div class="label">Agree DAP is easy to navigate</div>
+        <div class="value">61%</div>
+        <div class="sub">Lowest-rated item — 33% neutral</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Completed the DataCamp module</div>
+        <div class="value">50%</div>
+        <div class="sub">44% started, in progress</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+        <div>
+          <h2>Workshop experience</h2>
+          <p class="card-sub">Share of 18 respondents by rating</p>
+        </div>
+        <button class="toggle-btn" id="tableToggle">View data as table</button>
+      </div>
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
+        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
+        <div class="item"><span class="swatch" style="background:var(--agree)"></span>Agree / Strongly agree</div>
+      </div>
+      <div id="workshopStacks"></div>
+    </div>
+
+    <div class="card">
+      <h2>Databricks Platform (DAP)</h2>
+      <p class="card-sub">Share of 18 respondents by rating</p>
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
+        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
+        <div class="item"><span class="swatch" style="background:var(--agree)"></span>Agree / Strongly agree</div>
+      </div>
+      <div id="dapStacks"></div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h2>Session duration</h2>
+        <p class="card-sub">"The duration was just right for me"</p>
+        <div id="durationRows"></div>
+      </div>
+      <div class="card">
+        <h2>DataCamp e-learning progress</h2>
+        <p class="card-sub">Attempted the "Intro to Databricks" module</p>
+        <div id="datacampRows"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>DataCamp platform ratings</h2>
+      <p class="card-sub">Among the 17 respondents who started or completed the module</p>
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
+        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
+        <div class="item"><span class="swatch" style="background:var(--agree)"></span>Agree / Strongly agree</div>
+      </div>
+      <div id="datacampStacks"></div>
+    </div>
+
+    <div class="card">
+      <h2>What respondents told us</h2>
+      <p class="card-sub">Themes pulled from the open-text responses</p>
+      <div class="two-col">
+        <div>
+          <div style="font-size:12.5px; font-weight:650; color:var(--good); margin-bottom:8px;">What worked</div>
+          <ul class="theme-list">
+            <li><b>Pair (AI) assistant</b> — named by several respondents as the single biggest help for step-by-step guidance during exercises.</li>
+            <li><b>Left navigation column</b> and overall UI called out as intuitive.</li>
+            <li><b>DTO team support</b> during troubleshooting — one shoutout to "Wan Ling" by name.</li>
+            <li>The café dataset exercise and hands-on group format were repeatedly praised as engaging.</li>
+            <li>Respondents who finished the DataCamp pre-work said it made the live session easier to follow.</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-size:12.5px; font-weight:650; color:var(--warning); margin-bottom:8px;">Opportunities to improve</div>
+          <ul class="theme-list">
+            <li><b>DataCamp platform stability</b> — multiple reports of lagging, refreshing, and repeating tasks; one respondent found the instructions misleading.</li>
+            <li><b>More hands-on time</b> requested, especially for troubleshooting and the SQL → dashboard visualization step.</li>
+            <li><b>Pair assistant reliability</b> — one respondent hit code errors and suggested further training/refinement of the AI.</li>
+            <li>One request to enable the "Genie" feature.</li>
+            <li>Laptop performance issues made it hard for at least one participant to keep pace.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="quote">"Love the café idea. The pair chat was also very useful — though there may be a data integrity issue if we use actual data and don't understand what the data cleaning is doing."</div>
+    </div>
+
+    <div class="card" id="tableSection">
+      <h2>All ratings — full data table</h2>
+      <p class="card-sub">Accessible view of every chart above</p>
+      <table class="data-table" id="dataTable"></table>
+    </div>
+
+    <footer class="foot">Source: Data Explorers Workshop Post-Workshop Survey · n = 18 · 5 respondents left contact emails for future DAP updates</footer>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+(function(){
+  var N18 = 18, N17 = 17;
+
+  var workshopQs = [
+    { label: "Gained useful knowledge & skills", agree: 18, neutral: 0, disagree: 0, n: N18 },
+    { label: "Trainer explained clearly", agree: 17, neutral: 1, disagree: 0, n: N18 },
+    { label: "Exercises reinforced learning", agree: 17, neutral: 1, disagree: 0, n: N18 },
+    { label: "Workshop met expectations", agree: 17, neutral: 1, disagree: 0, n: N18 },
+    { label: "Would recommend workshop", agree: 18, neutral: 0, disagree: 0, n: N18 }
+  ];
+
+  var dapQs = [
+    { label: "DAP useful in my work", agree: 17, neutral: 1, disagree: 0, n: N18 },
+    { label: "DAP easy to navigate & use", agree: 11, neutral: 6, disagree: 1, n: N18 },
+    { label: "Confident using DAP now", agree: 15, neutral: 3, disagree: 0, n: N18 }
+  ];
+
+  var datacampQs = [
+    { label: "Platform easy to use & follow", agree: 8, neutral: 6, disagree: 3, n: N17 },
+    { label: "Flexible, learn at own pace", agree: 16, neutral: 1, disagree: 0, n: N17 },
+    { label: "Would recommend DataCamp", agree: 12, neutral: 5, disagree: 0, n: N17 }
+  ];
+
+  var tooltip = document.getElementById('tooltip');
+  function showTip(e, text){
+    tooltip.textContent = text;
+    tooltip.style.opacity = 1;
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY + 14) + 'px';
+  }
+  function hideTip(){ tooltip.style.opacity = 0; }
+
+  function pct(v, n){ return Math.round((v/n)*1000)/10; }
+
+  function renderStacks(containerId, data){
+    var el = document.getElementById(containerId);
+    data.forEach(function(q){
+      var row = document.createElement('div');
+      row.className = 'row';
+
+      var label = document.createElement('div');
+      label.className = 'rlabel';
+      label.textContent = q.label;
+      row.appendChild(label);
+
+      var stack = document.createElement('div');
+      stack.className = 'stack';
+
+      [
+        { cls: 'disagree', val: q.disagree, name: 'Disagree' },
+        { cls: 'neutral', val: q.neutral, name: 'Neutral' },
+        { cls: 'agree', val: q.agree, name: 'Agree / Strongly agree' }
+      ].forEach(function(seg){
+        if (seg.val === 0) return;
+        var p = pct(seg.val, q.n);
+        var d = document.createElement('div');
+        d.className = 'seg ' + seg.cls;
+        d.style.width = p + '%';
+        if (p >= 12) {
+          var lbl = document.createElement('span');
+          lbl.className = 'seg-label';
+          lbl.textContent = p + '%';
+          d.appendChild(lbl);
+        }
+        d.addEventListener('mousemove', function(e){ showTip(e, seg.name + ': ' + seg.val + ' of ' + q.n + ' (' + p + '%)'); });
+        d.addEventListener('mouseleave', hideTip);
+        stack.appendChild(d);
+      });
+
+      row.appendChild(stack);
+      el.appendChild(row);
+    });
+  }
+
+  renderStacks('workshopStacks', workshopQs);
+  renderStacks('dapStacks', dapQs);
+  renderStacks('datacampStacks', datacampQs);
+
+  var durationData = [
+    { label: 'Just right', val: 15, color: 'var(--good)' },
+    { label: 'Somewhat short', val: 2, color: 'var(--warning)' },
+    { label: 'Too short', val: 1, color: 'var(--disagree)' }
+  ];
+  var dcData = [
+    { label: 'Yes, completed', val: 9, color: 'var(--good)' },
+    { label: 'Started', val: 8, color: 'var(--warning)' },
+    { label: 'Not started', val: 1, color: 'var(--text-muted)' }
+  ];
+
+  function renderSimple(containerId, data, total){
+    var el = document.getElementById(containerId);
+    data.forEach(function(d){
+      var row = document.createElement('div');
+      row.className = 'simple-row';
+
+      var label = document.createElement('div');
+      label.className = 'rlabel';
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = d.color;
+      label.appendChild(dot);
+      label.appendChild(document.createTextNode(d.label));
+      row.appendChild(label);
+
+      var track = document.createElement('div');
+      track.className = 'simple-track';
+      var fill = document.createElement('div');
+      fill.className = 'simple-fill';
+      var p = pct(d.val, total);
+      fill.style.width = p + '%';
+      fill.style.background = d.color;
+      fill.addEventListener('mousemove', function(e){ showTip(e, d.label + ': ' + d.val + ' of ' + total + ' (' + p + '%)'); });
+      fill.addEventListener('mouseleave', hideTip);
+      track.appendChild(fill);
+      row.appendChild(track);
+
+      var count = document.createElement('div');
+      count.className = 'count';
+      count.textContent = d.val + ' (' + p + '%)';
+      row.appendChild(count);
+
+      el.appendChild(row);
+    });
+  }
+
+  renderSimple('durationRows', durationData, N18);
+  renderSimple('datacampRows', dcData, N18);
+
+  // Table view — accessibility twin of every chart above
+  var allQs = workshopQs.concat(dapQs).concat(datacampQs);
+  var table = document.getElementById('dataTable');
+  var thead = '<thead><tr><th>Question</th><th>n</th><th>Disagree</th><th>Neutral</th><th>Agree</th></tr></thead>';
+  var rows = allQs.map(function(q){
+    return '<tr><td>' + q.label + '</td><td>' + q.n + '</td><td>' + q.disagree + ' (' + pct(q.disagree,q.n) + '%)</td><td>' + q.neutral + ' (' + pct(q.neutral,q.n) + '%)</td><td>' + q.agree + ' (' + pct(q.agree,q.n) + '%)</td></tr>';
+  }).join('');
+  rows += durationData.map(function(d){ return '<tr><td>Duration — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
+  rows += dcData.map(function(d){ return '<tr><td>DataCamp attempt — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
+  table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
+
+  var tableSection = document.getElementById('tableSection');
+  var toggleBtn = document.getElementById('tableToggle');
+  toggleBtn.addEventListener('click', function(){
+    var open = tableSection.style.display === 'block';
+    tableSection.style.display = open ? 'none' : 'block';
+    toggleBtn.textContent = open ? 'View data as table' : 'Hide data table';
+    if (!open) tableSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+})();
+</script>
+</body>
+</html>
