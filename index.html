@@ -165,6 +165,34 @@
   .theme-list li b { color: var(--text-primary); font-weight: 600; }
   .quote { font-size: 12.5px; color: var(--text-muted); font-style: italic; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--gridline); }
 
+  .quote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .quote-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+  }
+  .quote-card .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 650;
+    color: var(--agree);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 4px;
+  }
+  @media (max-width: 720px) { .quote-grid { grid-template-columns: 1fr; } }
+
+  .callout { display: flex; align-items: center; gap: 20px; }
+  .callout-value { font-size: 34px; font-weight: 650; color: var(--text-primary); white-space: nowrap; line-height: 1; }
+  .callout-value .callout-of { font-size: 13px; font-weight: 500; color: var(--text-muted); display: block; margin-top: 4px; }
+  .callout-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .callout-text b { color: var(--text-primary); }
+  @media (max-width: 720px) { .callout { flex-direction: column; align-items: flex-start; gap: 10px; } }
+
   .toggle-btn {
     font-size: 12.5px;
     color: var(--text-secondary);
@@ -258,6 +286,22 @@
         <div class="item"><span class="swatch" style="background:var(--agree)"></span>Agree / Strongly agree</div>
       </div>
       <div id="dapStacks"></div>
+    </div>
+
+    <div class="card">
+      <h2>Why DAP felt easy to navigate</h2>
+      <p class="card-sub">"What made DAP easy to navigate and use for you?" — 10 of 18 gave a specific reason, 7 left it blank, 1 answered "-"</p>
+      <div id="easyReasonsRows"></div>
+      <div class="quote-grid" id="easyReasonsQuotes"></div>
+    </div>
+
+    <div class="card">
+      <h2>Suggestions to make DAP easier</h2>
+      <p class="card-sub">"What could we do to make DAP easier for you to use?"</p>
+      <div class="callout">
+        <div class="callout-value">1 <span class="callout-of">of 18</span></div>
+        <div class="callout-text">responded to this question — and that answer was <b>"Na"</b> (no specific ask). The other 17 left it blank. Concrete improvement ideas instead showed up in the general feedback field, already summarized in <b>Opportunities to improve</b> below.</div>
+      </div>
     </div>
 
     <div class="two-col">
@@ -453,6 +497,41 @@
   renderSimple('durationRows', durationData, N18);
   renderSimple('datacampRows', dcData, N18);
 
+  // "What made DAP easy to navigate and use for you?" — theme tally, n=18
+  var easyReasonThemes = [
+    { label: 'Pair (AI) assistant', val: 4, color: 'var(--agree)' },
+    { label: 'Intuitive UI / left nav', val: 3, color: 'var(--agree)' },
+    { label: 'DataCamp pre-work primed them', val: 2, color: 'var(--agree)' },
+    { label: 'Trainer / DTO guidance', val: 1, color: 'var(--agree)' }
+  ];
+  renderSimple('easyReasonsRows', easyReasonThemes, N18);
+
+  var easyReasonQuotes = [
+    { tag: 'Pair / AI assistant', text: '"The pair prompts"' },
+    { tag: 'Pair / AI assistant', text: '"The guidance from DTO and also the pair assistants"' },
+    { tag: 'Pair / AI assistant', text: '"The ability to use AI tools to facilitate efficient data processing"' },
+    { tag: 'Pair / AI assistant', text: '"The pair assistant was helpful to provide step by step guide to clean and analyse the data"' },
+    { tag: 'Intuitive UI / left nav', text: '"Intuitive"' },
+    { tag: 'Intuitive UI / left nav', text: '"The nav column on the left!"' },
+    { tag: 'Intuitive UI / left nav', text: '"User interface"' },
+    { tag: 'DataCamp pre-work', text: '"The data camp was a good precursor to help prep for this. Tho the data camp was laggy, kept refreshing and needed to perform the same tasks multiple times."' },
+    { tag: 'DataCamp pre-work', text: '"The e learning module sets the foundation and made it easier to catch up during the actual workshop"' },
+    { tag: 'Trainer / DTO guidance', text: '"Trainers share tips and a clear guide for using Databricks."' }
+  ];
+  var quoteEl = document.getElementById('easyReasonsQuotes');
+  easyReasonQuotes.forEach(function(q){
+    var card = document.createElement('div');
+    card.className = 'quote-card';
+    var tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.textContent = q.tag;
+    var text = document.createElement('div');
+    text.textContent = q.text;
+    card.appendChild(tag);
+    card.appendChild(text);
+    quoteEl.appendChild(card);
+  });
+
   // Table view — accessibility twin of every chart above
   var allQs = workshopQs.concat(dapQs).concat(datacampQs);
   var table = document.getElementById('dataTable');
@@ -462,6 +541,8 @@
   }).join('');
   rows += durationData.map(function(d){ return '<tr><td>Duration — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
   rows += dcData.map(function(d){ return '<tr><td>DataCamp attempt — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
+  rows += easyReasonThemes.map(function(d){ return '<tr><td>Why DAP felt easy — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
+  rows += '<tr><td>Suggestions to improve DAP — responded</td><td>' + N18 + '</td><td colspan="3">1 (5.6%) — answer was "Na"</td></tr>';
   table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
 
   var tableSection = document.getElementById('tableSection');
