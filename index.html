@@ -16,7 +16,7 @@
     --gridline:       #e1e0d9;
     --baseline:       #c3c2b7;
     --border:         rgba(11,11,11,0.10);
-    --agree:          #2a78d6;
+    --agree:          #1baf7a;
     --disagree:       #e34948;
     --neutral:        #898781;
     --good:           #0ca30c;
@@ -36,7 +36,7 @@
       --gridline:       #2c2c2a;
       --baseline:       #383835;
       --border:         rgba(255,255,255,0.10);
-      --agree:          #3987e5;
+      --agree:          #199e70;
       --disagree:       #e66767;
       --neutral:        #898781;
       --good:           #0ca30c;
@@ -56,7 +56,7 @@
     --gridline:       #2c2c2a;
     --baseline:       #383835;
     --border:         rgba(255,255,255,0.10);
-    --agree:          #3987e5;
+    --agree:          #199e70;
     --disagree:       #e66767;
     --neutral:        #898781;
     --good:           #0ca30c;
@@ -138,11 +138,11 @@
     color: #fff;
     white-space: nowrap;
   }
-  .seg.disagree { background: var(--disagree); border-radius: 4px 0 0 4px; }
+  .seg.disagree { background: var(--disagree); }
   .seg.neutral  { background: var(--neutral); }
-  .seg.agree    { background: var(--agree); border-radius: 0 4px 4px 0; }
-  .seg.disagree:first-child { border-radius: 4px 0 0 4px; }
-  .seg.agree:last-child { border-radius: 0 4px 4px 0; }
+  .seg.agree    { background: var(--agree); }
+  .seg:first-child { border-radius: 4px 0 0 4px; }
+  .seg:last-child { border-radius: 0 4px 4px 0; }
 
   .simple-row { display: grid; grid-template-columns: 170px 1fr 70px; align-items: center; gap: 14px; margin-bottom: 12px; }
   .simple-row:last-child { margin-bottom: 0; }
@@ -271,9 +271,9 @@
         <button class="toggle-btn" id="tableToggle">View data as table</button>
       </div>
       <div class="legend">
-        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
-        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
         <div class="item"><span class="swatch" style="background:var(--agree)"></span>Agree / Strongly agree</div>
+        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
+        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
       </div>
       <div id="workshopStacks"></div>
     </div>
@@ -282,9 +282,9 @@
       <h2>Databricks Platform (DAP)</h2>
       <p class="card-sub">Share of 18 respondents by rating</p>
       <div class="legend">
-        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
-        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
         <div class="item"><span class="swatch" style="background:var(--agree)"></span>Agree / Strongly agree</div>
+        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
+        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
       </div>
       <div id="dapStacks"></div>
     </div>
@@ -327,9 +327,9 @@
       <h2>DataCamp platform ratings</h2>
       <p class="card-sub">Among the 17 respondents who started or completed the module</p>
       <div class="legend">
-        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
-        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
         <div class="item"><span class="swatch" style="background:var(--agree)"></span>Agree / Strongly agree</div>
+        <div class="item"><span class="swatch" style="background:var(--neutral)"></span>Neutral</div>
+        <div class="item"><span class="swatch" style="background:var(--disagree)"></span>Disagree</div>
       </div>
       <div id="datacampStacks"></div>
     </div>
@@ -424,9 +424,9 @@
       stack.className = 'stack';
 
       [
-        { cls: 'disagree', val: q.disagree, name: 'Disagree' },
+        { cls: 'agree', val: q.agree, name: 'Agree / Strongly agree' },
         { cls: 'neutral', val: q.neutral, name: 'Neutral' },
-        { cls: 'agree', val: q.agree, name: 'Agree / Strongly agree' }
+        { cls: 'disagree', val: q.disagree, name: 'Disagree' }
       ].forEach(function(seg){
         if (seg.val === 0) return;
         var p = pct(seg.val, q.n);
@@ -547,9 +547,9 @@
   // Table view — accessibility twin of every chart above
   var allQs = workshopQs.concat(dapQs).concat(datacampQs);
   var table = document.getElementById('dataTable');
-  var thead = '<thead><tr><th>Question</th><th>n</th><th>Disagree</th><th>Neutral</th><th>Agree</th></tr></thead>';
+  var thead = '<thead><tr><th>Question</th><th>n</th><th>Agree</th><th>Neutral</th><th>Disagree</th></tr></thead>';
   var rows = allQs.map(function(q){
-    return '<tr><td>' + q.label + '</td><td>' + q.n + '</td><td>' + q.disagree + ' (' + pct(q.disagree,q.n) + '%)</td><td>' + q.neutral + ' (' + pct(q.neutral,q.n) + '%)</td><td>' + q.agree + ' (' + pct(q.agree,q.n) + '%)</td></tr>';
+    return '<tr><td>' + q.label + '</td><td>' + q.n + '</td><td>' + q.agree + ' (' + pct(q.agree,q.n) + '%)</td><td>' + q.neutral + ' (' + pct(q.neutral,q.n) + '%)</td><td>' + q.disagree + ' (' + pct(q.disagree,q.n) + '%)</td></tr>';
   }).join('');
   rows += durationData.map(function(d){ return '<tr><td>Duration — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
   rows += dcData.map(function(d){ return '<tr><td>DataCamp attempt — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
