@@ -22,6 +22,10 @@
     --neutral:        #eda100;
     --good:           #0ca30c;
     --warning:        #fab219;
+    --donut-1:        #2a78d6;
+    --donut-2:        #eb6834;
+    --donut-3:        #1baf7a;
+    --donut-4:        #4a3aa7;
     --tooltip-bg:     #0b0b0b;
     --tooltip-text:   #ffffff;
   }
@@ -43,6 +47,10 @@
       --neutral:        #cda30f;
       --good:           #0ca30c;
       --warning:        #fab219;
+      --donut-1:        #3987e5;
+      --donut-2:        #d95926;
+      --donut-3:        #199e70;
+      --donut-4:        #7b4dc9;
       --tooltip-bg:     #ffffff;
       --tooltip-text:   #0b0b0b;
     }
@@ -64,6 +72,10 @@
     --neutral:        #cda30f;
     --good:           #0ca30c;
     --warning:        #fab219;
+    --donut-1:        #3987e5;
+    --donut-2:        #d95926;
+    --donut-3:        #199e70;
+    --donut-4:        #7b4dc9;
     --tooltip-bg:     #ffffff;
     --tooltip-text:   #0b0b0b;
   }
@@ -153,6 +165,19 @@
   .simple-track { height: 20px; background: var(--gridline); border-radius: 4px; overflow: hidden; }
   .simple-fill { height: 100%; border-radius: 4px; }
   .simple-row .count { font-size: 12.5px; color: var(--text-secondary); text-align: right; }
+
+  .donut-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-top: 4px; }
+  .donut-chart { position: relative; width: 168px; height: 168px; flex: none; }
+  .donut-chart svg { width: 100%; height: 100%; display: block; }
+  .donut-chart .seg-arc { cursor: default; }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
+  .donut-center-value { font-size: 26px; font-weight: 650; color: var(--text-primary); line-height: 1; }
+  .donut-center-label { font-size: 10.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.35; max-width: 90px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 11px; flex: 1; min-width: 200px; }
+  .donut-legend-item { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--text-primary); }
+  .donut-legend-item .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .donut-legend-item .count { margin-left: auto; font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 480px) { .donut-wrap { justify-content: center; } }
 
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   @media (max-width: 720px) {
@@ -299,8 +324,17 @@
         </div>
         <button class="toggle-btn" id="quotesToggle">Show what people said</button>
       </div>
-      <div id="easyReasonsRows"></div>
-      <div class="quote" style="border-top:none; padding-top:0; margin-top:8px;">Note: shares are of the <b style="color:var(--text-secondary); font-style:normal;">10 respondents who gave a specific reason</b>, not all 18 surveyed — 7 left this blank and 1 answered "-". Treat these as directional, not representative.</div>
+      <div class="donut-wrap">
+        <div class="donut-chart">
+          <svg id="easyReasonsDonut" viewBox="0 0 200 200"></svg>
+          <div class="donut-center">
+            <div class="donut-center-value">10</div>
+            <div class="donut-center-label">respondents gave a reason</div>
+          </div>
+        </div>
+        <div class="donut-legend" id="easyReasonsLegend"></div>
+      </div>
+      <div class="quote" style="border-top:none; padding-top:0; margin-top:14px;">Note: shares are of the <b style="color:var(--text-secondary); font-style:normal;">10 respondents who gave a specific reason</b>, not all 18 surveyed — 7 left this blank and 1 answered "-". Treat these as directional, not representative.</div>
       <div class="quote-grid" id="easyReasonsQuotes"></div>
     </div>
 
@@ -509,12 +543,64 @@
   // "What made DAP easy to navigate and use for you?" — theme tally among the
   // 10 of 18 respondents who gave a specific reason (percentages are of that 10, not all 18)
   var easyReasonThemes = [
-    { label: 'Pair (AI) assistant', val: 4, color: 'var(--agree)' },
-    { label: 'Intuitive UI / left nav', val: 3, color: 'var(--agree)' },
-    { label: 'DataCamp pre-work primed them', val: 2, color: 'var(--agree)' },
-    { label: 'Trainer / DTO guidance', val: 1, color: 'var(--agree)' }
+    { label: 'Pair (AI) assistant', val: 4, color: 'var(--donut-1)' },
+    { label: 'Intuitive UI / left nav', val: 3, color: 'var(--donut-2)' },
+    { label: 'DataCamp pre-work primed them', val: 2, color: 'var(--donut-3)' },
+    { label: 'Trainer / DTO guidance', val: 1, color: 'var(--donut-4)' }
   ];
-  renderSimple('easyReasonsRows', easyReasonThemes, N_EASY_REASONS);
+
+  function renderDonut(svgId, legendId, data, total){
+    var svg = document.getElementById(svgId);
+    var cx = 100, cy = 100, r = 70, sw = 30;
+    var circumference = 2 * Math.PI * r;
+    var offset = 0;
+    var svgns = 'http://www.w3.org/2000/svg';
+    var group = document.createElementNS(svgns, 'g');
+    group.setAttribute('transform', 'rotate(-90 ' + cx + ' ' + cy + ')');
+    svg.appendChild(group);
+
+    data.forEach(function(d){
+      var frac = d.val / total;
+      var len = frac * circumference;
+      var gap = 2; // surface gap between segments
+      var circle = document.createElementNS(svgns, 'circle');
+      circle.setAttribute('class', 'seg-arc');
+      circle.setAttribute('cx', cx);
+      circle.setAttribute('cy', cy);
+      circle.setAttribute('r', r);
+      circle.setAttribute('fill', 'none');
+      circle.setAttribute('stroke', d.color);
+      circle.setAttribute('stroke-width', sw);
+      circle.setAttribute('stroke-dasharray', Math.max(len - gap, 0) + ' ' + (circumference - len + gap));
+      circle.setAttribute('stroke-dashoffset', -offset);
+      var pct = Math.round(frac * 1000) / 10;
+      circle.addEventListener('mousemove', function(e){ showTip(e, d.label + ': ' + d.val + ' of ' + total + ' (' + pct + '%)'); });
+      circle.addEventListener('mouseleave', hideTip);
+      group.appendChild(circle);
+      offset += len;
+    });
+
+    var legend = document.getElementById(legendId);
+    data.forEach(function(d){
+      var pct = Math.round((d.val / total) * 1000) / 10;
+      var item = document.createElement('div');
+      item.className = 'donut-legend-item';
+      var swatch = document.createElement('span');
+      swatch.className = 'swatch';
+      swatch.style.background = d.color;
+      var label = document.createElement('span');
+      label.textContent = d.label;
+      var count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = d.val + ' · ' + pct + '%';
+      item.appendChild(swatch);
+      item.appendChild(label);
+      item.appendChild(count);
+      legend.appendChild(item);
+    });
+  }
+
+  renderDonut('easyReasonsDonut', 'easyReasonsLegend', easyReasonThemes, N_EASY_REASONS);
 
   var easyReasonQuotes = [
     { tag: 'Pair / AI assistant', text: '"The pair prompts"' },
