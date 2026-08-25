@@ -300,6 +300,7 @@
         <button class="toggle-btn" id="quotesToggle">Show what people said</button>
       </div>
       <div id="easyReasonsRows"></div>
+      <div class="quote" style="border-top:none; padding-top:0; margin-top:8px;">Note: shares are of the <b style="color:var(--text-secondary); font-style:normal;">10 respondents who gave a specific reason</b>, not all 18 surveyed — 7 left this blank and 1 answered "-". Treat these as directional, not representative.</div>
       <div class="quote-grid" id="easyReasonsQuotes"></div>
     </div>
 
@@ -378,7 +379,7 @@
 
 <script>
 (function(){
-  var N18 = 18, N17 = 17;
+  var N18 = 18, N17 = 17, N_EASY_REASONS = 10;
 
   var workshopQs = [
     { label: "Gained useful knowledge & skills", agree: 18, neutral: 0, disagree: 0, n: N18 },
@@ -505,14 +506,15 @@
   renderSimple('durationRows', durationData, N18);
   renderSimple('datacampRows', dcData, N18);
 
-  // "What made DAP easy to navigate and use for you?" — theme tally, n=18
+  // "What made DAP easy to navigate and use for you?" — theme tally among the
+  // 10 of 18 respondents who gave a specific reason (percentages are of that 10, not all 18)
   var easyReasonThemes = [
     { label: 'Pair (AI) assistant', val: 4, color: 'var(--agree)' },
     { label: 'Intuitive UI / left nav', val: 3, color: 'var(--agree)' },
     { label: 'DataCamp pre-work primed them', val: 2, color: 'var(--agree)' },
     { label: 'Trainer / DTO guidance', val: 1, color: 'var(--agree)' }
   ];
-  renderSimple('easyReasonsRows', easyReasonThemes, N18);
+  renderSimple('easyReasonsRows', easyReasonThemes, N_EASY_REASONS);
 
   var easyReasonQuotes = [
     { tag: 'Pair / AI assistant', text: '"The pair prompts"' },
@@ -555,7 +557,7 @@
   }).join('');
   rows += durationData.map(function(d){ return '<tr><td>Duration — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
   rows += dcData.map(function(d){ return '<tr><td>DataCamp attempt — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
-  rows += easyReasonThemes.map(function(d){ return '<tr><td>Why DAP felt easy — ' + d.label + '</td><td>' + N18 + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N18) + '%)</td></tr>'; }).join('');
+  rows += easyReasonThemes.map(function(d){ return '<tr><td>Why DAP felt easy — ' + d.label + ' (% of the 10 who gave a reason)</td><td>' + N_EASY_REASONS + '</td><td colspan="3">' + d.val + ' (' + pct(d.val,N_EASY_REASONS) + '%)</td></tr>'; }).join('');
   rows += '<tr><td>Suggestions to improve DAP — responded</td><td>' + N18 + '</td><td colspan="3">1 (5.6%) — answer was "Na"</td></tr>';
   table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
 
