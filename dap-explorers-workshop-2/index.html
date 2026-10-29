@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DAP Explorers Workshop 2</title>
+<meta name="description" content="Post-workshop survey results for DAP Explorers Workshop 2, compared with Workshop 1.">
+<style>
+  :root { color-scheme: light; --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; --cds-dur-slow: .3s; }
+  html, body { margin: 0; background: #eef1f6; }
+  body { font-family: var(--font-anthropic-sans); -webkit-font-smoothing: antialiased; }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  .dash-skeleton:empty { background: linear-gradient(90deg, #e3e7ee, #f1f3f7, #e3e7ee); background-size: 200% 100%; border-radius: 6px; min-height: 1em; }
+  @media (prefers-reduced-motion: no-preference) { .dash-skeleton:empty { animation: sk 1.2s linear infinite; } }
+  @keyframes sk { to { background-position: -200% 0; } }
+  .dw-app { border-radius: 0; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+// Minimal stand-in for the claude.ai dashboard runtime: loads the CSV files
+// next to this page and runs the page's calcs and drawings over them.
+window.dash = (() => {
+  const files = {
+    responses: 'data/dap2_workshop_feedback.csv',
+    responses_w1: 'data/dap1_workshop_feedback.csv',
+    feedback: 'data/feedback_themes.csv'
+  };
+  const loaded = {};
+  const calcs = {};
+  const draws = new Map();
+  let cache = {};
+
+  const data = (id) => {
+    if (cache[id]) return cache[id];
+    let out;
+    if (loaded[id]) out = loaded[id];
+    else if (files[id]) out = { status: 'loading', data: [], columns: [] };
+    else if (calcs[id]) {
+      const ins = calcs[id].inputs.map(data);
+      if (ins.some((d) => d.status === 'error')) out = { status: 'error', data: [], columns: [] };
+      else if (ins.some((d) => d.status !== 'ok')) out = { status: 'loading', data: [], columns: [] };
+      else {
+        try {
+          const rows = calcs[id].fn(...ins.map((d) => d.data));
+          out = { status: 'ok', data: rows, columns: rows && rows[0] ? Object.keys(rows[0]) : [] };
+        } catch (e) {
+          console.error(`calc ${id}`, e);
+          out = { status: 'error', data: [], columns: [] };
+        }
+      }
+    } else out = { status: 'missing', data: [], columns: [] };
+    cache[id] = out;
+    return out;
+  };
+
+  const run = (name) => {
+    const fn = draws.get(name);
+    if (!fn) return;
+    document.querySelectorAll(`[data-draw="${name}"]`).forEach((el) => {
+      if (el.closest('[hidden]')) return;
+      try { fn(el); } catch (e) { console.error(`draw ${name}`, e); }
+    });
+  };
+  const runAll = () => draws.forEach((_, name) => run(name));
+
+  let lastW = window.innerWidth, t;
+  window.addEventListener('resize', () => {
+    if (window.innerWidth === lastW) return;
+    lastW = window.innerWidth;
+    clearTimeout(t);
+    t = setTimeout(runAll, 120);
+  });
+
+  window.addEventListener('DOMContentLoaded', () => {
+    runAll();
+    Promise.all(Object.entries(files).map(([id, url]) => d3.csv(url).then(
+      (rows) => { loaded[id] = { status: 'ok', data: rows, columns: rows.columns }; },
+      (e) => { console.error(`load ${id}`, e); loaded[id] = { status: 'error', data: [], columns: [] }; }
+    ))).then(() => { cache = {}; runAll(); });
+  });
+
+  return {
+    data,
+    calc: (id, def) => { calcs[id] = def; },
+    draw: (name, fn) => { if (fn) draws.set(name, typeof fn === 'function' ? fn : fn.update); else run(name); },
+    onData: () => {},
+    colors: ['#1f3b63', '#f6a823', '#e4572e', '#6b7685', '#2b4c7e', '#f3ab96', '#d6dce5', '#1c2733'],
+    setLink: (id) => { try { history.replaceState(null, '', '#' + id); } catch (e) {} },
+    params: () => ({}),
+    setParams: () => {},
+    resetParams: () => {},
+    refresh: () => {}
+  };
+})();
+</script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+  #dash-root { --dash-gutter: 0; }
+  .dw-app {
+    --navy: #1f3b63; --navy-2: #2b4c7e; --navy-ink: #dfe7f3;
+    --amber: #f6a823; --amber-soft: #fde7bf;
+    --coral: #e4572e; --coral-soft: #f3ab96;
+    --bar-grey: #d6dce5; --bg: #eef1f6; --card: #ffffff;
+    --ink: #1c2733; --muted: #6b7685; --line: #e3e7ee;
+    --shadow: 0 1px 2px rgba(28, 39, 51, .06), 0 4px 14px rgba(28, 39, 51, .06);
+    font-family: var(--font-anthropic-sans);
+    color: var(--ink); background: var(--bg);
+    display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: 100%;
+    border-radius: 6px; overflow: clip;
+  }
+
+  /* Sidebar */
+  .dw-side { background: var(--navy); color: var(--navy-ink); padding: 2rem 0; display: flex; flex-direction: column; gap: 1.75rem; position: sticky; top: 0; align-self: start; min-height: 100vh; }
+  .dw-brand { display: grid; justify-items: center; gap: .5rem; text-align: center; padding: 0 1.25rem; }
+  .dw-avatar { width: 4.5rem; height: 4.5rem; border-radius: 50%; background: #fff; display: grid; place-items: center; }
+  .dw-avatar svg { width: 2.4rem; height: 2.4rem; }
+  .dw-brand-name { font-size: 1.15rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #fff; margin: 0; }
+  .dw-brand-sub { font-size: .8rem; color: var(--navy-ink); opacity: .75; margin: 0; }
+  .dw-nav { display: grid; }
+  .dw-nav button { font: inherit; font-size: .95rem; color: var(--navy-ink); background: none; border: 0; border-left: 3px solid transparent; text-align: left; padding: .8rem 1.5rem; display: flex; align-items: center; gap: .85rem; cursor: pointer; }
+  .dw-nav button:hover { background: var(--navy-2); color: #fff; }
+  .dw-nav button[aria-current="true"] { background: var(--navy-2); color: #fff; border-left-color: var(--amber); }
+  .dw-nav button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+  .dw-nav svg { width: 1.1rem; height: 1.1rem; flex: none; }
+  .dw-side-foot { margin-top: auto; padding: 0 1.5rem; font-size: .75rem; opacity: .6; line-height: 1.5; }
+
+  /* Main */
+  .dw-main { padding: 1.75rem 2rem 2.5rem; display: grid; gap: 1.5rem; align-content: start; min-width: 0; }
+  .dw-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .75rem 1.5rem; }
+  .dw-top h1 { margin: 0; font-size: 1.6rem; font-weight: 700; color: var(--ink); }
+  .dw-top p { margin: .35rem 0 0; color: var(--muted); font-size: .95rem; max-width: 70ch; line-height: 1.5; }
+  .dw-app .dw-top b { color: var(--ink); font-weight: 700; }
+  .dw-pill { background: var(--amber); color: var(--ink); font-size: .8rem; font-weight: 700; padding: .45rem 1rem; border-radius: 999px; white-space: nowrap; }
+
+  .dw-card { background: var(--card); border-radius: 6px; box-shadow: var(--shadow); padding: 1.25rem 1.4rem; display: grid; gap: .9rem; align-content: start; min-width: 0; position: relative; }
+  .dw-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+  .dw-card h2, .dw-card h3 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+  .dw-card-note { margin: .2rem 0 0; font-size: .82rem; color: var(--muted); line-height: 1.45; max-width: 70ch; }
+  .dw-tag { background: var(--amber); color: var(--ink); font-size: .72rem; font-weight: 700; padding: .3rem .75rem; border-radius: 4px; white-space: nowrap; }
+
+  /* Insights bar */
+  .dw-insights { background: var(--card); border-radius: 6px; box-shadow: var(--shadow); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); margin-top: -.5rem; }
+  .dw-insight { display: flex; align-items: flex-start; gap: .85rem; padding: 1.1rem 1.4rem; border-left: 1px solid var(--line); min-width: 0; }
+  .dw-insight:first-child { border-left: 0; }
+  .dw-insight-icon { width: 2.25rem; height: 2.25rem; border-radius: 50%; display: grid; place-items: center; background: var(--amber-soft); color: #b9790a; flex: none; }
+  .dw-insight-icon svg { width: 1.1rem; height: 1.1rem; }
+  .dw-insight.is-warn .dw-insight-icon { background: #fbe4dc; color: var(--coral); }
+  .dw-insight-body { display: grid; gap: .2rem; min-width: 0; }
+  .dw-insight-k { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .dw-insight-body p { margin: 0; font-size: .92rem; line-height: 1.45; color: var(--ink); }
+  .dw-app .dw-insight b { font-weight: 700; color: var(--navy); }
+  .dw-app .dw-insight.is-warn b { color: var(--coral); }
+  @media (max-width: 48rem) {
+    .dw-insight { border-left: 0; border-top: 1px solid var(--line); }
+    .dw-insight:first-child { border-top: 0; }
+  }
+
+  /* KPI cards */
+  .dw-kpis { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr)); }
+  .dw-kpi { background: var(--card); border-radius: 6px; box-shadow: var(--shadow); padding: 1.4rem 1.5rem; display: grid; gap: .6rem; align-content: start; }
+  .dw-kpi-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+  .dw-kpi-label { font-size: .9rem; color: var(--muted); font-weight: 600; }
+  .dw-kpi-icon { width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--amber-soft); color: var(--amber); flex: none; }
+  .dw-kpi-icon svg { width: 1.05rem; height: 1.05rem; }
+  .dw-kpi-value { font-size: 2.75rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); display: flex; align-items: baseline; gap: .2rem; }
+  .dw-kpi-unit { font-size: 1.25rem; color: var(--muted); font-weight: 600; }
+  .dw-kpi-note { font-size: .8rem; color: var(--muted); }
+  .dw-kpi.is-filled { background: var(--navy); }
+  .dw-kpi.is-filled .dw-kpi-label, .dw-kpi.is-filled .dw-kpi-note, .dw-kpi.is-filled .dw-kpi-unit { color: var(--navy-ink); }
+  .dw-kpi.is-filled .dw-kpi-value { color: #fff; }
+  .dw-kpi.is-filled .dw-kpi-icon { background: rgba(255, 255, 255, .14); color: #fff; }
+  .dw-kpi.is-weak .dw-kpi-num { color: var(--coral); }
+  .dw-mini { display: flex; height: .45rem; border-radius: 999px; overflow: hidden; gap: 1px; background: var(--line); min-height: .45rem; }
+
+  /* Colours for ratings and tones */
+  .s1 { background: var(--coral); }
+  .s2 { background: var(--coral-soft); }
+  .s3 { background: var(--bar-grey); }
+  .s4 { background: var(--amber); }
+  .s5 { background: var(--navy); }
+  .t-pos { background: var(--navy); }
+  .t-con { background: var(--coral); }
+  .t-sug { background: var(--amber); }
+
+  .dw-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; font-size: .78rem; color: var(--muted); }
+  .dw-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+  .dw-legend i { width: .7rem; height: .7rem; border-radius: 50%; display: inline-block; }
+
+  .dw-row { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 2.2fr) minmax(16rem, 1fr); }
+  .dw-row3 { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+  .dw-section-title { display: flex; align-items: center; gap: .6rem; margin: .5rem 0 -.25rem; }
+  .dw-section-title h2 { margin: 0; font-size: 1.25rem; font-weight: 700; }
+  .dw-section-title span { width: .5rem; height: 1.25rem; border-radius: 2px; background: var(--amber); }
+
+  .dw-chart { min-height: 18rem; position: relative; }
+  .dw-chart.is-short { min-height: 12rem; }
+  .dw-chart svg { display: block; }
+  .dw-tip { position: absolute; z-index: 5; background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 20px rgba(28, 39, 51, .14); padding: .45rem .65rem; font-size: .78rem; pointer-events: none; white-space: nowrap; line-height: 1.45; }
+  .dw-tip-k { color: var(--muted); }
+  .dw-tip i { width: .55rem; height: .55rem; border-radius: 50%; display: inline-block; margin-right: .35rem; }
+
+  .dw-donut-wrap { display: grid; justify-items: center; gap: .75rem; min-height: 16rem; }
+  .dw-donut { width: min(100%, 12rem); min-height: 12rem; }
+  .dw-donut-cap { text-align: center; font-size: .85rem; color: var(--muted); line-height: 1.5; }
+  .dw-app .dw-donut-cap b { color: var(--ink); }
+  .dw-donut-list { width: 100%; display: grid; gap: .45rem; font-size: .82rem; }
+  .dw-donut-list div { display: flex; justify-content: space-between; gap: .5rem; border-top: 1px solid var(--line); padding-top: .45rem; font-variant-numeric: tabular-nums; }
+
+  .dw-hbars { display: grid; gap: .7rem; min-height: 9rem; }
+  .dw-hb { display: grid; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) 2rem; gap: .65rem; align-items: center; font-size: .82rem; }
+  .dw-hb-track { height: .7rem; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .dw-hb-fill { height: 100%; border-radius: 999px; }
+  .dw-hb-n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .dw-big { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .dw-big-n { font-size: 2.75rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .dw-big small { color: var(--muted); font-size: .9rem; }
+  .dw-stack { display: flex; height: 1.6rem; border-radius: 4px; overflow: hidden; gap: 2px; min-height: 1.6rem; }
+  .dw-stack div { display: flex; align-items: center; justify-content: center; color: #fff; font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .dw-tablebox { overflow-x: auto; }
+  .dw-table { border-collapse: collapse; width: 100%; font-size: .88rem; font-variant-numeric: tabular-nums; }
+  .dw-table th { text-align: right; font-weight: 600; font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: .5rem .6rem; border-bottom: 2px solid var(--line); }
+  .dw-table td { text-align: right; padding: .65rem .6rem; border-bottom: 1px solid var(--line); }
+  .dw-table th:first-child, .dw-table td:first-child { text-align: left; }
+  .dw-table td:first-child { font-weight: 600; }
+
+  .dw-filters { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .dw-chip { font: inherit; font-size: .82rem; font-weight: 600; padding: .45rem 1rem; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: .45rem; box-shadow: var(--shadow); }
+  .dw-chip i { width: .55rem; height: .55rem; border-radius: 50%; display: inline-block; }
+  .dw-chip[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .dw-chip:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  .dw-themes { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr)); min-height: 10rem; }
+  .dw-theme { background: var(--card); border-radius: 6px; box-shadow: var(--shadow); padding: 1.25rem 1.4rem; display: grid; gap: .8rem; align-content: start; min-width: 0; border-top: 4px solid var(--bar-grey); }
+  .dw-theme.tone-pos { border-top-color: var(--navy); }
+  .dw-theme.tone-con { border-top-color: var(--coral); }
+  .dw-theme.tone-sug { border-top-color: var(--amber); }
+  .dw-theme-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+  .dw-theme-name { font-size: 1rem; font-weight: 700; margin: 0; color: var(--ink); }
+  .dw-theme-count { min-width: 2.4rem; height: 2.4rem; padding: 0 .4rem; border-radius: 999px; background: var(--navy); color: #fff; display: grid; place-items: center; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+  .dw-theme.tone-con .dw-theme-count { background: var(--coral); }
+  .dw-theme.tone-sug .dw-theme-count { background: var(--amber); color: var(--ink); }
+  .dw-theme-tone { font-size: .78rem; color: var(--muted); margin-top: .2rem; display: block; }
+  .dw-quotes { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+  .dw-quotes li { background: var(--bg); border-radius: 4px; padding: .6rem .75rem; font-size: .88rem; line-height: 1.45; overflow-wrap: anywhere; }
+  .dw-quotes small { display: block; color: var(--muted); font-size: .72rem; margin-top: .25rem; text-transform: uppercase; letter-spacing: .04em; }
+  .dw-more { font: inherit; font-size: .8rem; font-weight: 700; background: var(--amber); color: var(--ink); border: 0; border-radius: 4px; padding: .4rem .9rem; cursor: pointer; justify-self: start; }
+  .dw-more:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+  /* Workshop comparison */
+  .dw-delta { justify-self: start; font-size: .78rem; font-weight: 700; padding: .25rem .6rem; border-radius: 999px; background: var(--bg); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dw-delta.is-up { background: #e3efe6; color: #23764a; }
+  .dw-delta.is-down { background: #fbe4dc; color: #b23a17; }
+  .dw-w1 { background: var(--amber); }
+  .dw-w2 { background: var(--navy); }
+  .dw-db { display: grid; gap: 1.1rem; min-height: 16rem; position: relative; }
+  .dw-db-group { display: grid; gap: .35rem; }
+  .dw-db-gh { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .dw-db-row, .dw-db-axis { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) 3.5rem; gap: .9rem; align-items: center; }
+  .dw-db-row { padding-block: .3rem; border-bottom: 1px solid var(--line); }
+  .dw-db-label { font-size: .86rem; min-width: 0; }
+  .dw-db-track { position: relative; height: 1.4rem; }
+  .dw-db-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+  .dw-db-line { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; background: var(--bar-grey); border-radius: 2px; }
+  .dw-db-dot { position: absolute; top: 50%; width: .9rem; height: .9rem; margin: -.45rem 0 0 -.45rem; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(28, 39, 51, .12); }
+  .dw-db-axis { font-size: .72rem; color: var(--muted); }
+  .dw-db-ticks { position: relative; height: 1rem; }
+  .dw-db-ticks span { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+  .dw-db-d { text-align: right; font-size: .82rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .dw-db-d.is-up { color: #23764a; }
+  .dw-db-d.is-down { color: #b23a17; }
+  .dw-cstack { display: grid; gap: .9rem; min-height: 6rem; }
+  .dw-cstack-row { display: grid; gap: .35rem; }
+  .dw-cstack-label { display: flex; justify-content: space-between; gap: .5rem; font-size: .82rem; }
+  .dw-cstack-label span:last-child { color: var(--muted); }
+  .dw-cstack-bar { display: flex; height: 1.6rem; border-radius: 4px; overflow: hidden; gap: 2px; }
+  .dw-cstack-bar div { display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .d1 { background: var(--coral); }
+  .d2 { background: var(--coral-soft); }
+  .d3 { background: var(--navy); }
+  .d4 { background: var(--amber-soft); }
+  .d5 { background: var(--amber); }
+  @media (max-width: 48rem) {
+    .dw-db-row, .dw-db-axis { grid-template-columns: minmax(0, 1fr) 3rem; row-gap: .2rem; }
+    .dw-db-label { grid-column: 1 / -1; }
+    .dw-db-axis > :first-child { display: none; }
+  }
+
+  [data-dash-source-state=empty] { color: transparent; }
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+
+  @media (max-width: 64rem) {
+    .dw-row { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 48rem) {
+    .dw-app { grid-template-columns: minmax(0, 1fr); }
+    .dw-side { position: static; min-height: 0; padding: 1rem 0 0; gap: .75rem; }
+    .dw-brand { grid-template-columns: auto 1fr; justify-items: start; text-align: left; align-items: center; column-gap: .75rem; padding: 0 16px; }
+    .dw-avatar { width: 2.75rem; height: 2.75rem; grid-row: span 2; }
+    .dw-avatar svg { width: 1.5rem; height: 1.5rem; }
+    .dw-nav { display: flex; overflow-x: auto; }
+    .dw-nav button { border-left: 0; border-bottom: 3px solid transparent; padding: .75rem 1rem; white-space: nowrap; }
+    .dw-nav button[aria-current="true"] { border-bottom-color: var(--amber); }
+    .dw-side-foot { display: none; }
+    .dw-main { padding: 1.25rem 16px 2rem; }
+    .dw-hb { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) 2rem; }
+  }
+</style>
+
+<div class="dw-app">
+  <aside class="dw-side">
+    <div class="dw-brand">
+      <div class="dw-avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1f3b63" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      </div>
+      <p class="dw-brand-name">DAP Explorers Workshop 2</p>
+      <p class="dw-brand-sub">Feedback · <span data-draw="date" data-source="summary" data-field="session_date">—</span></p>
+    </div>
+    <nav class="dw-nav" aria-label="Sections">
+      <button type="button" data-target="overview" aria-current="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Overview
+      </button>
+      <button type="button" data-target="session">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V12M10 20V6M16 20v-5M21 20H3"/></svg>Session
+      </button>
+      <button type="button" data-target="learn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/></svg>LEARN module
+      </button>
+      <button type="button" data-target="compare">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M17 4v16M3 8h8M13 16h8"/></svg>Compare
+      </button>
+      <button type="button" data-target="comments">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Comments
+      </button>
+    </nav>
+    <p class="dw-side-foot">Post-workshop survey. Email addresses are not shown on this dashboard.</p>
+  </aside>
+
+  <main class="dw-main">
+    <header class="dw-top" id="overview">
+      <div>
+        <h1>DAP Explorers Workshop 2</h1>
+      </div>
+      <span class="dw-pill"><span data-draw="n-resp" data-source="summary" data-field="responses">—</span> responses</span>
+    </header>
+
+    <section class="dw-insights" aria-label="Key insights">
+      <div class="dw-insight">
+        <span class="dw-insight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1zM7 11l4-8a2.5 2.5 0 0 1 2.5 2.5V9h5.2a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.5 20H7"/></svg></span>
+        <div class="dw-insight-body">
+          <span class="dw-insight-k">Recommendation</span>
+          <p><b data-draw="kpi" data-source="likert" data-where="item=recommend" data-field="agree_pct">—</b>% would recommend the workshop to colleagues</p>
+        </div>
+      </div>
+      <div class="dw-insight">
+        <span class="dw-insight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>
+        <div class="dw-insight-body">
+          <span class="dw-insight-k">Top comment theme</span>
+          <p>“<b data-draw="t-theme" data-source="themes" data-row="0" data-field="theme">—</b>”</p>
+        </div>
+      </div>
+      <div class="dw-insight is-warn">
+        <span class="dw-insight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.2v.1"/></svg></span>
+        <div class="dw-insight-body">
+          <span class="dw-insight-k">To note</span>
+          <p>“<b data-draw="t-low" data-source="summary" data-field="lowest_label">—</b>” was the lowest-rated statement at <b data-draw="t-lowv" data-source="summary" data-field="lowest_mean">—</b> out of 5</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="dw-kpis" aria-label="Headline figures">
+      <div class="dw-kpi is-filled">
+        <div class="dw-kpi-top">
+          <span class="dw-kpi-label">Responses</span>
+          <span class="dw-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.8c1.6.8 2.6 2.6 3 5.2"/></svg></span>
+        </div>
+        <span class="dw-kpi-value"><span class="dw-kpi-num dash-skeleton" data-draw="n-resp" data-source="summary" data-field="responses">—</span></span>
+        <span class="dw-kpi-note">Session of <span data-draw="date" data-source="summary" data-field="session_date">—</span></span>
+      </div>
+      <div class="dw-kpi">
+        <div class="dw-kpi-top">
+          <span class="dw-kpi-label">Met expectations</span>
+          <span class="dw-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6L2.5 9.3l6.6-.8z"/></svg></span>
+        </div>
+        <span class="dw-kpi-value"><span class="dw-kpi-num dash-skeleton" data-draw="kpi" data-source="likert" data-where="item=expectations" data-field="mean">—</span><span class="dw-kpi-unit">/ 5</span></span>
+        <div class="dw-mini" data-draw="mini" data-item="expectations" data-source="likert"></div>
+        <span class="dw-kpi-note">Average rating · <span data-draw="kpi" data-source="likert" data-where="item=expectations" data-field="agree_pct">—</span>% agree</span>
+      </div>
+      <div class="dw-kpi">
+        <div class="dw-kpi-top">
+          <span class="dw-kpi-label">Confident using DAP</span>
+          <span class="dw-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+        </div>
+        <span class="dw-kpi-value"><span class="dw-kpi-num dash-skeleton" data-draw="kpi" data-source="likert" data-where="item=confidence" data-field="agree_pct">—</span><span class="dw-kpi-unit">%</span></span>
+        <div class="dw-mini" data-draw="mini" data-item="confidence" data-source="likert"></div>
+        <span class="dw-kpi-note"><span data-draw="kpi" data-source="likert" data-where="item=confidence" data-field="agree_n">—</span> of <span data-draw="kpi" data-source="likert" data-where="item=confidence" data-field="n">—</span> agree or strongly agree</span>
+      </div>
+      <div class="dw-kpi is-weak">
+        <div class="dw-kpi-top">
+          <span class="dw-kpi-label">Easy to navigate DAP</span>
+          <span class="dw-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span>
+        </div>
+        <span class="dw-kpi-value"><span class="dw-kpi-num dash-skeleton" data-draw="kpi" data-source="likert" data-where="item=ease_nav" data-field="agree_pct">—</span><span class="dw-kpi-unit">%</span></span>
+        <div class="dw-mini" data-draw="mini" data-item="ease_nav" data-source="likert"></div>
+        <span class="dw-kpi-note"><span data-draw="kpi" data-source="likert" data-where="item=ease_nav" data-field="agree_n">—</span> of <span data-draw="kpi" data-source="likert" data-where="item=ease_nav" data-field="n">—</span> agree or strongly agree</span>
+      </div>
+    </section>
+
+    <div class="dw-section-title" id="session"><span aria-hidden="true"></span><h2>Key feedback on the session</h2></div>
+    <div class="dw-row">
+      <div class="dw-card">
+        <div class="dw-card-head">
+          <div>
+            <h3>Ratings by statement</h3>
+            <p class="dw-card-note">Share of participants giving each answer. The figure above each column is the share who agree or strongly agree. Hover a column for the counts.</p>
+          </div>
+          <span class="dw-tag">1–5 scale</span>
+        </div>
+        <div class="dw-legend" aria-hidden="true">
+          <span><i class="s5"></i>Strongly agree</span>
+          <span><i class="s4"></i>Agree</span>
+          <span><i class="s3"></i>Neutral</span>
+          <span><i class="s2"></i>Disagree</span>
+          <span><i class="s1"></i>Strongly disagree</span>
+        </div>
+        <div class="dw-chart dash-skeleton" data-draw="cols" data-groups="The workshop|DAP platform" data-source="likert"></div>
+      </div>
+      <div class="dw-card">
+        <div class="dw-card-head">
+          <h3>Would recommend</h3>
+          <span class="dw-tag">Workshop</span>
+        </div>
+        <div class="dw-donut-wrap">
+          <div class="dw-donut" data-draw="donut" data-source="likert"></div>
+          <p class="dw-donut-cap"><b data-draw="kpi" data-source="likert" data-where="item=recommend" data-field="agree_n">—</b> of <b data-draw="kpi" data-source="likert" data-where="item=recommend" data-field="n">—</b> participants would recommend this workshop to colleagues.</p>
+          <div class="dw-donut-list">
+            <div><span>Strongly agree</span><b data-draw="kpi" data-source="likert" data-where="item=recommend" data-field="s5">—</b></div>
+            <div><span>Agree</span><b data-draw="kpi" data-source="likert" data-where="item=recommend" data-field="s4">—</b></div>
+            <div><span>Neutral</span><b data-draw="kpi" data-source="likert" data-where="item=recommend" data-field="s3">—</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dw-row3">
+      <div class="dw-card">
+        <div>
+          <h3>Was the session the right length?</h3>
+          <p class="dw-card-note">Number of participants choosing each option.</p>
+        </div>
+        <div class="dw-chart is-short dash-skeleton" data-draw="duration" data-source="duration"></div>
+      </div>
+      <div class="dw-card">
+        <div>
+          <h3>Comment themes</h3>
+          <p class="dw-card-note">Number of written comments in each theme.</p>
+        </div>
+        <div class="dw-legend" aria-hidden="true">
+          <span><i class="t-pos"></i>Positive</span>
+          <span><i class="t-con"></i>Concern</span>
+          <span><i class="t-sug"></i>Suggestion</span>
+        </div>
+        <div class="dw-hbars dash-skeleton" data-draw="theme-bars" data-source="themes"></div>
+      </div>
+    </div>
+
+    <div class="dw-section-title" id="learn"><span aria-hidden="true"></span><h2>LEARN e-module</h2></div>
+    <div class="dw-row3">
+      <div class="dw-card">
+        <div>
+          <h3>Completed before the workshop</h3>
+          <p class="dw-card-note">The self-paced module assigned on the LEARN website.</p>
+        </div>
+        <div class="dw-big"><span class="dw-big-n dash-skeleton" data-draw="learn-done" data-source="learn" data-where="label=Completed" data-field="n">—</span><small>of <span data-draw="n-resp" data-source="summary" data-field="responses">—</span> participants</small></div>
+        <div class="dw-stack" data-draw="learn-stack" data-source="learn"></div>
+        <div class="dw-legend" aria-hidden="true">
+          <span><i class="s5"></i>Completed</span>
+          <span><i class="s4"></i>Started</span>
+          <span><i class="s3"></i>Not attempted</span>
+        </div>
+      </div>
+      <div class="dw-card">
+        <div>
+          <h3>Did the module make a difference?</h3>
+          <p class="dw-card-note">Average rating (1–5) by whether the participant had done the module.</p>
+        </div>
+        <div class="dw-tablebox">
+          <table class="dw-table" data-source="by_learn" data-row-key="label">
+            <thead>
+              <tr>
+                <th data-field="label">Module</th>
+                <th data-field="n">People</th>
+                <th data-field="confidence">Confident</th>
+                <th data-field="ease_nav">Navigation</th>
+                <th data-field="expectations">Expectations</th>
+              </tr>
+            </thead>
+            <tbody data-draw="by-learn"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="dw-card">
+        <div>
+          <h3>How participants rated the module</h3>
+          <p class="dw-card-note">Only those who started or completed it answered.</p>
+        </div>
+        <div class="dw-chart is-short dash-skeleton" data-draw="cols" data-groups="LEARN e-module" data-source="likert"></div>
+      </div>
+    </div>
+
+    <div class="dw-section-title" id="compare"><span aria-hidden="true"></span><h2>Compared with Workshop 1</h2></div>
+    <p class="dw-card-note">Workshop 1 ran on <b data-draw="cmp-meta" data-source="cmp_meta" data-where="workshop=Workshop 1" data-field="session_date">—</b> with <b data-draw="cmp-meta" data-source="cmp_meta" data-where="workshop=Workshop 1" data-field="responses">—</b> responses; Workshop 2 on <b data-draw="cmp-meta" data-source="cmp_meta" data-where="workshop=Workshop 2" data-field="session_date">—</b> with <b data-draw="cmp-meta" data-source="cmp_meta" data-where="workshop=Workshop 2" data-field="responses">—</b>. Workshop 2 averaged higher on <b data-draw="cmp-sum" data-source="cmp_summary" data-field="higher">—</b> of <b data-draw="cmp-sum" data-source="cmp_summary" data-field="total">—</b> rated statements and lower on <b data-draw="cmp-sum" data-source="cmp_summary" data-field="lower">—</b>. Groups are small, so a change of a few points can be one or two people.</p>
+    <section class="dw-kpis" aria-label="Workshop 2 against Workshop 1">
+      <div class="dw-kpi">
+        <span class="dw-kpi-label">Would recommend</span>
+        <span class="dw-kpi-value"><span class="dw-kpi-num" data-draw="cmp" data-source="compare" data-where="item=recommend" data-field="w2_agree_pct">—</span><span class="dw-kpi-unit">%</span></span>
+        <span class="dw-delta" data-draw="cmp-delta" data-source="compare" data-where="item=recommend" data-field="delta_agree_label">—</span>
+        <span class="dw-kpi-note">Workshop 1: <span data-draw="cmp" data-source="compare" data-where="item=recommend" data-field="w1_agree_pct">—</span>% agree</span>
+      </div>
+      <div class="dw-kpi">
+        <span class="dw-kpi-label">Met expectations</span>
+        <span class="dw-kpi-value"><span class="dw-kpi-num" data-draw="cmp" data-source="compare" data-where="item=expectations" data-field="w2_mean">—</span><span class="dw-kpi-unit">/ 5</span></span>
+        <span class="dw-delta" data-draw="cmp-delta" data-source="compare" data-where="item=expectations" data-field="delta_mean_label">—</span>
+        <span class="dw-kpi-note">Workshop 1: <span data-draw="cmp" data-source="compare" data-where="item=expectations" data-field="w1_mean">—</span> average</span>
+      </div>
+      <div class="dw-kpi">
+        <span class="dw-kpi-label">Confident using DAP</span>
+        <span class="dw-kpi-value"><span class="dw-kpi-num" data-draw="cmp" data-source="compare" data-where="item=confidence" data-field="w2_agree_pct">—</span><span class="dw-kpi-unit">%</span></span>
+        <span class="dw-delta" data-draw="cmp-delta" data-source="compare" data-where="item=confidence" data-field="delta_agree_label">—</span>
+        <span class="dw-kpi-note">Workshop 1: <span data-draw="cmp" data-source="compare" data-where="item=confidence" data-field="w1_agree_pct">—</span>% agree</span>
+      </div>
+      <div class="dw-kpi">
+        <span class="dw-kpi-label">Easy to navigate DAP</span>
+        <span class="dw-kpi-value"><span class="dw-kpi-num" data-draw="cmp" data-source="compare" data-where="item=ease_nav" data-field="w2_agree_pct">—</span><span class="dw-kpi-unit">%</span></span>
+        <span class="dw-delta" data-draw="cmp-delta" data-source="compare" data-where="item=ease_nav" data-field="delta_agree_label">—</span>
+        <span class="dw-kpi-note">Workshop 1: <span data-draw="cmp" data-source="compare" data-where="item=ease_nav" data-field="w1_agree_pct">—</span>% agree</span>
+      </div>
+      <div class="dw-kpi">
+        <span class="dw-kpi-label">Completed pre-workshop module</span>
+        <span class="dw-kpi-value"><span class="dw-kpi-num" data-draw="cmp" data-source="compare" data-where="item=module_completed" data-field="w2_agree_pct">—</span><span class="dw-kpi-unit">%</span></span>
+        <span class="dw-delta" data-draw="cmp-delta" data-source="compare" data-where="item=module_completed" data-field="delta_agree_label">—</span>
+        <span class="dw-kpi-note">Workshop 1 (DataCamp): <span data-draw="cmp" data-source="compare" data-where="item=module_completed" data-field="w1_agree_pct">—</span>%</span>
+      </div>
+    </section>
+    <div class="dw-card">
+      <div class="dw-card-head">
+        <div>
+          <h3>Average rating, Workshop 1 against Workshop 2</h3>
+          <p class="dw-card-note">Each line joins the two workshops' averages on a 1–5 scale; the scale starts above 1 so differences are visible. The number on the right is the change in Workshop 2. Hover a dot for counts.</p>
+        </div>
+        <span class="dw-tag">Average / 5</span>
+      </div>
+      <div class="dw-legend" aria-hidden="true">
+        <span><i class="dw-w1"></i>Workshop 1</span>
+        <span><i class="dw-w2"></i>Workshop 2</span>
+      </div>
+      <div class="dw-db dash-skeleton" data-draw="dumbbell" data-source="compare"></div>
+    </div>
+    <div class="dw-row3">
+      <div class="dw-card">
+        <div>
+          <h3>Session length</h3>
+          <p class="dw-card-note">Share of participants choosing each option in each workshop.</p>
+        </div>
+        <div class="dw-legend" aria-hidden="true">
+          <span><i class="d1"></i>Too short</span>
+          <span><i class="d2"></i>Somewhat short</span>
+          <span><i class="d3"></i>Just right</span>
+          <span><i class="d4"></i>Somewhat long</span>
+          <span><i class="d5"></i>Too long</span>
+        </div>
+        <div class="dw-cstack dash-skeleton" data-draw="cmp-stack" data-kind="duration" data-source="cmp_dist"></div>
+      </div>
+      <div class="dw-card">
+        <div>
+          <h3>Pre-workshop e-module</h3>
+          <p class="dw-card-note">Workshop 1 used a DataCamp course and Workshop 2 a LEARN module, so this compares take-up, not the same module.</p>
+        </div>
+        <div class="dw-legend" aria-hidden="true">
+          <span><i class="s5"></i>Completed</span>
+          <span><i class="s4"></i>Started</span>
+          <span><i class="s3"></i>Not attempted</span>
+        </div>
+        <div class="dw-cstack dash-skeleton" data-draw="cmp-stack" data-kind="module" data-source="cmp_dist"></div>
+      </div>
+    </div>
+
+    <div class="dw-section-title" id="comments"><span aria-hidden="true"></span><h2>What participants said</h2></div>
+    <p class="dw-card-note">Every written answer, grouped into themes. Answers such as “Nil” or “-” are left out, and one response can appear in several themes.</p>
+    <div class="dw-filters" role="group" aria-label="Filter by tone">
+      <button type="button" class="dw-chip" data-tone="" aria-pressed="true">All</button>
+      <button type="button" class="dw-chip" data-tone="Positive" aria-pressed="false"><i class="t-pos"></i>Positive</button>
+      <button type="button" class="dw-chip" data-tone="Concern" aria-pressed="false"><i class="t-con"></i>Concerns</button>
+      <button type="button" class="dw-chip" data-tone="Suggestion" aria-pressed="false"><i class="t-sug"></i>Suggestions</button>
+    </div>
+    <div class="dw-themes dash-skeleton" data-draw="themes" data-source="themes feedback"></div>
+  </main>
+</div>
+
+<script>
+  dash.calc('likert', {
+    title: 'Rating breakdown per statement',
+    description: 'For each 1–5 agreement question: how many chose each score, how many answered, the average (1 decimal) and how many and what share agree (4 or 5).',
+    inputs: ['responses'],
+    fn: (responses) => {
+      const items = [
+        ['knowledge', 'Gained useful knowledge and skills', 'Knowledge', 'The workshop'],
+        ['trainer', 'Trainer explained concepts clearly', 'Trainer', 'The workshop'],
+        ['exercises', 'Exercises reinforced understanding', 'Exercises', 'The workshop'],
+        ['expectations', 'Workshop met my expectations', 'Expectations', 'The workshop'],
+        ['recommend', 'Would recommend the workshop', 'Recommend', 'The workshop'],
+        ['useful_work', 'Can see how DAP is useful in my work', 'Useful at work', 'DAP platform'],
+        ['confidence', 'Confident using DAP after the workshop', 'Confidence', 'DAP platform'],
+        ['ease_nav', 'DAP is easy to navigate and use', 'Navigation', 'DAP platform'],
+        ['learn_ease', 'Module was easy to use and follow', 'Easy to follow', 'LEARN e-module'],
+        ['learn_flex', 'Lets me learn at my own pace', 'Own pace', 'LEARN e-module'],
+        ['learn_recommend', 'Would recommend the module', 'Recommend', 'LEARN e-module']
+      ];
+      return items.map(([item, label, short, group]) => {
+        const scores = responses.map((r) => Number(String(r[item] ?? '').slice(0, 1))).filter((n) => n >= 1 && n <= 5);
+        const count = (k) => scores.filter((n) => n === k).length;
+        const n = scores.length;
+        const agree_n = count(4) + count(5);
+        return {
+          item, label, short, group, n, s1: count(1), s2: count(2), s3: count(3), s4: count(4), s5: count(5),
+          mean: n ? Math.round((scores.reduce((a, b) => a + b, 0) / n) * 10) / 10 : null,
+          agree_n, agree_pct: n ? Math.round((agree_n / n) * 100) : null
+        };
+      });
+    }
+  });
+
+  dash.calc('summary', {
+    title: 'Headline figures',
+    description: 'Response count, session date and the lowest-rated statement.',
+    inputs: ['responses', 'likert'],
+    fn: (responses, likert) => {
+      const lowest = likert.filter((r) => r.n).reduce((a, b) => (b.mean < a.mean ? b : a));
+      return [{
+        responses: responses.length,
+        session_date: String(responses[0]?.submitted ?? '').slice(0, 11),
+        lowest_label: lowest.label,
+        lowest_mean: lowest.mean
+      }];
+    }
+  });
+
+  dash.calc('duration', {
+    title: 'Session length ratings',
+    description: 'How many participants chose each option for "The duration was just right for me", from too short (1) to too long (5).',
+    inputs: ['responses'],
+    fn: (responses) => {
+      const labels = ['Too short', 'Somewhat short', 'Just right', 'Somewhat long', 'Too long'];
+      return labels.map((label, i) => ({ score: i + 1, label, n: responses.filter((r) => Number(String(r.duration).slice(0, 1)) === i + 1).length }));
+    }
+  });
+
+  dash.calc('learn', {
+    title: 'LEARN module completion',
+    description: 'How many participants had completed, started or not attempted the LEARN e-module.',
+    inputs: ['responses'],
+    fn: (responses) => {
+      const order = [['Yes, I have completed.', 'Completed'], ['Started, will try to complete.', 'Started'], ['No', 'Not attempted']];
+      return order.map(([status, label]) => ({ status, label, n: responses.filter((r) => r.learn_status === status).length }));
+    }
+  });
+
+  dash.calc('by_learn', {
+    title: 'Ratings by LEARN module status',
+    description: 'Average 1–5 rating for confidence, ease of navigation and met expectations, split by whether the participant had done the LEARN module.',
+    inputs: ['responses'],
+    fn: (responses) => {
+      const order = [['Yes, I have completed.', 'Completed'], ['Started, will try to complete.', 'Started'], ['No', 'Not attempted']];
+      const avg = (rows, k) => rows.length ? Math.round((rows.reduce((a, r) => a + Number(String(r[k]).slice(0, 1)), 0) / rows.length) * 10) / 10 : null;
+      return order.map(([status, label]) => {
+        const rows = responses.filter((r) => r.learn_status === status);
+        return { label, n: rows.length, confidence: avg(rows, 'confidence'), ease_nav: avg(rows, 'ease_nav'), expectations: avg(rows, 'expectations') };
+      });
+    }
+  });
+
+  dash.calc('themes', {
+    title: 'Comment themes',
+    description: 'Number of written comments and of distinct responses in each theme, most common first.',
+    inputs: ['feedback'],
+    fn: (feedback) => {
+      const groups = new Map();
+      feedback.forEach((c) => {
+        const g = groups.get(c.theme) || { theme: c.theme, tone: c.tone, n: 0, ids: new Set() };
+        g.n += 1;
+        g.ids.add(c.response_id);
+        groups.set(c.theme, g);
+      });
+      return [...groups.values()].map((g) => ({ theme: g.theme, tone: g.tone, n: g.n, responses: g.ids.size })).sort((a, b) => b.n - a.n);
+    }
+  });
+
+  dash.calc('compare', {
+    title: 'Workshop 1 against Workshop 2',
+    description: 'For each statement asked in both workshops: answers, average (1 decimal) and share agreeing (4 or 5) in each, and the change in Workshop 2. Also the share who completed the pre-workshop module.',
+    inputs: ['responses_w1', 'responses'],
+    fn: (responses_w1, responses) => {
+      const items = [
+        ['knowledge', 'Gained useful knowledge and skills', 'The workshop'],
+        ['trainer', 'Trainer explained concepts clearly', 'The workshop'],
+        ['exercises', 'Exercises reinforced understanding', 'The workshop'],
+        ['expectations', 'Workshop met my expectations', 'The workshop'],
+        ['recommend', 'Would recommend the workshop', 'The workshop'],
+        ['useful_work', 'Can see how DAP is useful in my work', 'DAP platform'],
+        ['confidence', 'Confident using DAP after the workshop', 'DAP platform'],
+        ['ease_nav', 'DAP is easy to navigate and use', 'DAP platform'],
+        ['learn_ease', 'Module was easy to use and follow', 'Pre-workshop module (DataCamp, then LEARN)'],
+        ['learn_flex', 'Lets me learn at my own pace', 'Pre-workshop module (DataCamp, then LEARN)'],
+        ['learn_recommend', 'Would recommend the module', 'Pre-workshop module (DataCamp, then LEARN)']
+      ];
+      const stat = (rows, k) => {
+        const s = rows.map((r) => Number(String(r[k] ?? '').slice(0, 1))).filter((v) => v >= 1 && v <= 5);
+        const n = s.length;
+        return { n, mean: n ? Math.round((s.reduce((a, b) => a + b, 0) / n) * 10) / 10 : null, agree: n ? Math.round((s.filter((v) => v >= 4).length / n) * 100) : null };
+      };
+      const signed = (v, digits, unit) => (v === 0 ? 'No change' : (v > 0 ? '+' : '−') + Math.abs(v).toFixed(digits) + unit);
+      const out = items.map(([item, label, group]) => {
+        const a = stat(responses_w1, item), b = stat(responses, item);
+        const dm = Math.round((b.mean - a.mean) * 10) / 10, da = b.agree - a.agree;
+        return {
+          item, label, group, kind: 'rating', w1_n: a.n, w2_n: b.n, w1_mean: a.mean, w2_mean: b.mean, w1_agree_pct: a.agree, w2_agree_pct: b.agree,
+          delta_mean: dm, delta_agree: da, delta_mean_label: signed(dm, 1, ''), delta_agree_label: signed(da, 0, ' pts')
+        };
+      });
+      const done = (rows) => Math.round((rows.filter((r) => String(r.learn_status).startsWith('Yes')).length / rows.length) * 100);
+      const c1 = done(responses_w1), c2 = done(responses);
+      out.push({
+        item: 'module_completed', label: 'Completed the pre-workshop module', group: 'Pre-workshop module', kind: 'share',
+        w1_n: responses_w1.length, w2_n: responses.length, w1_mean: null, w2_mean: null, w1_agree_pct: c1, w2_agree_pct: c2,
+        delta_mean: null, delta_agree: c2 - c1, delta_mean_label: '', delta_agree_label: signed(c2 - c1, 0, ' pts')
+      });
+      return out;
+    }
+  });
+
+  dash.calc('cmp_meta', {
+    title: 'Workshop dates and responses',
+    description: 'Session date and number of responses for each workshop.',
+    inputs: ['responses_w1', 'responses'],
+    fn: (responses_w1, responses) => [['Workshop 1', responses_w1], ['Workshop 2', responses]].map(([workshop, rows]) => ({
+      workshop, session_date: String(rows[0]?.submitted ?? '').slice(0, 11), responses: rows.length
+    }))
+  });
+
+  dash.calc('cmp_summary', {
+    title: 'Statements up or down',
+    description: 'How many rated statements had a higher, lower or equal average in Workshop 2 than in Workshop 1.',
+    inputs: ['compare'],
+    fn: (compare) => {
+      const r = compare.filter((c) => c.kind === 'rating');
+      return [{ total: r.length, higher: r.filter((c) => c.delta_mean > 0).length, lower: r.filter((c) => c.delta_mean < 0).length, same: r.filter((c) => c.delta_mean === 0).length }];
+    }
+  });
+
+  dash.calc('cmp_dist', {
+    title: 'Session length and module take-up by workshop',
+    description: 'Counts of each session length answer and of pre-workshop module status, per workshop.',
+    inputs: ['responses_w1', 'responses'],
+    fn: (responses_w1, responses) => {
+      const out = [];
+      [['Workshop 1', 'DataCamp', responses_w1], ['Workshop 2', 'LEARN', responses]].forEach(([workshop, platform, rows]) => {
+        const d = (k) => rows.filter((r) => Number(String(r.duration).slice(0, 1)) === k).length;
+        out.push({ workshop, kind: 'duration', n: rows.length, c1: d(1), c2: d(2), c3: d(3), c4: d(4), c5: d(5), platform });
+        const m = (s) => rows.filter((r) => r.learn_status === s).length;
+        out.push({ workshop, kind: 'module', n: rows.length, c1: m('Yes, I have completed.'), c2: m('Started, will try to complete.'), c3: m('No'), c4: 0, c5: 0, platform });
+      });
+      return out;
+    }
+  });
+
+</script>
+
+<script>
+  const C = { navy: '#1f3b63', amber: '#f6a823', coral: '#e4572e', coralSoft: '#f3ab96', grey: '#d6dce5', line: '#e3e7ee', ink: '#1c2733', muted: '#6b7685' };
+  const segFill = { 1: C.coral, 2: C.coralSoft, 3: C.grey, 4: C.amber, 5: C.navy };
+  const segName = { 1: 'Strongly disagree', 2: 'Disagree', 3: 'Neutral', 4: 'Agree', 5: 'Strongly agree' };
+  const toneKey = { Positive: 'pos', Concern: 'con', Suggestion: 'sug' };
+  const ready = (id) => { const d = dash.data(id); return d.status === 'ok' && d.data.length ? d.data : null; };
+  const loading = (el, ...ids) => el.classList.toggle('dash-skeleton', ids.some((id) => dash.data(id).status === 'loading'));
+  const f1 = d3.format('.1f');
+  const pct = d3.format('.0%');
+  const make = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const placeTip = (tip, host, e) => {
+    const box = host.getBoundingClientRect();
+    let x = e.clientX - box.left + 14;
+    if (x + tip.offsetWidth > box.width) x = Math.max(0, e.clientX - box.left - tip.offsetWidth - 14);
+    tip.style.left = x + 'px';
+    tip.style.top = Math.max(0, e.clientY - box.top - tip.offsetHeight - 10) + 'px';
+  };
+
+  const word = (name, src, fmt) => dash.draw(name, (el) => {
+    const rows = ready(src);
+    loading(el, src);
+    el.textContent = rows ? fmt(rows[0]) : '—';
+  });
+  word('n-resp', 'summary', (r) => String(r.responses));
+  word('date', 'summary', (r) => r.session_date);
+  word('t-low', 'summary', (r) => r.lowest_label);
+  word('t-lowv', 'summary', (r) => f1(r.lowest_mean));
+  word('t-theme', 'themes', (r) => r.theme);
+
+  dash.draw('kpi', (el) => {
+    const rows = ready('likert');
+    loading(el, 'likert');
+    const item = (el.getAttribute('data-where') || '').split('=')[1];
+    const field = el.getAttribute('data-field');
+    const r = rows && rows.find((x) => x.item === item);
+    el.textContent = r && r[field] != null ? (field === 'mean' ? f1(r[field]) : String(r[field])) : '—';
+  });
+
+  dash.draw('mini', (el) => {
+    const rows = ready('likert');
+    el.replaceChildren();
+    const r = rows && rows.find((x) => x.item === el.dataset.item);
+    if (!r) return;
+    [5, 4, 3, 2, 1].forEach((k) => {
+      if (!r['s' + k]) return;
+      const seg = make('div', 's' + k);
+      seg.style.width = (r['s' + k] / r.n) * 100 + '%';
+      el.append(seg);
+    });
+  });
+
+  // Stacked 100% columns, one per statement: strongly agree at the base, disagreement on top.
+  dash.draw('cols', (el) => {
+    const all = ready('likert');
+    loading(el, 'likert');
+    el.replaceChildren();
+    if (!all) return;
+    const groups = (el.dataset.groups || '').split('|');
+    const rows = all.filter((r) => groups.includes(r.group) && r.n);
+    if (!rows.length) return;
+    const W = Math.max(260, el.clientWidth);
+    const H = el.classList.contains('is-short') ? 220 : 300;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Share of answers per statement');
+    const probe = svg.append('text').style('font-size', '11px').text('100%');
+    const tickW = probe.node().getComputedTextLength();
+    probe.remove();
+    const m = { t: 26, r: 6, b: 44, l: tickW + 10 };
+    const x = d3.scaleBand(rows.map((r) => r.item), [m.l, W - m.r]).paddingInner(0.38).paddingOuter(0.2);
+    const y = d3.scaleLinear([0, 1], [H - m.b, m.t]);
+    const bw = Math.min(x.bandwidth(), 46);
+    const off = (x.bandwidth() - bw) / 2;
+
+    [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
+      svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(t)).attr('y2', y(t)).style('stroke', C.line).style('stroke-dasharray', t ? '3 4' : null);
+      svg.append('text').attr('x', m.l - 8).attr('y', y(t)).attr('dy', '.32em').attr('text-anchor', 'end').style('fill', C.muted).style('font-size', '11px').text(pct(t));
+    });
+
+    if (groups.length > 1) {
+      const firstPlatform = rows.findIndex((r) => r.group !== rows[0].group);
+      if (firstPlatform > 0) {
+        const sx = (x(rows[firstPlatform - 1].item) + x.bandwidth() + x(rows[firstPlatform].item)) / 2;
+        svg.append('line').attr('x1', sx).attr('x2', sx).attr('y1', 4).attr('y2', H - m.b + 4).style('stroke', C.grey);
+        svg.append('text').attr('x', m.l + 2).attr('y', 11).style('fill', C.muted).style('font-size', '11px').style('font-weight', 600).text(rows[0].group.toUpperCase());
+        svg.append('text').attr('x', sx + 8).attr('y', 11).style('fill', C.muted).style('font-size', '11px').style('font-weight', 600).text(rows[firstPlatform].group.toUpperCase());
+      }
+    }
+
+    const tip = make('div', 'dw-tip');
+    tip.hidden = true;
+    rows.forEach((r, i) => {
+      const g = svg.append('g').style('cursor', 'default');
+      let acc = 0;
+      [5, 4, 3, 2, 1].forEach((k) => {
+        const v = r['s' + k] / r.n;
+        if (!v) return;
+        g.append('rect').attr('x', x(r.item) + off).attr('width', bw).attr('y', y(acc + v)).attr('height', y(acc) - y(acc + v)).style('fill', segFill[k]);
+        acc += v;
+      });
+      g.append('text').attr('x', x(r.item) + x.bandwidth() / 2).attr('y', y(1) - 7).attr('text-anchor', 'middle')
+        .style('fill', r.agree_pct < 70 ? C.coral : C.ink).style('font-size', '12px').style('font-weight', 700).style('font-variant-numeric', 'tabular-nums').text(r.agree_pct + '%');
+      const lab = g.append('text').attr('y', H - m.b + 16).attr('text-anchor', 'middle').style('fill', C.muted).style('font-size', '11px');
+      const parts = x.step() > 80 ? [r.short] : r.short.split(' ');
+      parts.forEach((p, j) => lab.append('tspan').attr('x', x(r.item) + x.bandwidth() / 2).attr('dy', j ? 13 : 0).text(p));
+      g.append('rect').attr('x', x(r.item)).attr('width', x.bandwidth()).attr('y', m.t - 20).attr('height', H - m.b - m.t + 20).style('fill', 'transparent')
+        .on('mouseenter', () => {
+          tip.replaceChildren(make('div', 'dw-tip-k', r.label));
+          [5, 4, 3, 2, 1].forEach((k) => {
+            if (!r['s' + k]) return;
+            const line = make('div');
+            const sw = make('i');
+            sw.style.background = segFill[k];
+            line.append(sw, document.createTextNode(`${segName[k]}: ${r['s' + k]} of ${r.n}`));
+            tip.append(line);
+          });
+          tip.append(make('div', 'dw-tip-k', `Average ${f1(r.mean)} out of 5`));
+          tip.hidden = false;
+        })
+        .on('mousemove', (e) => placeTip(tip, el, e))
+        .on('mouseleave', () => { tip.hidden = true; });
+    });
+    el.append(tip);
+  });
+
+  dash.draw('donut', (el) => {
+    const rows = ready('likert');
+    el.replaceChildren();
+    const r = rows && rows.find((x) => x.item === 'recommend');
+    if (!r) return;
+    const S = 200, R = S / 2;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${S} ${S}`).attr('role', 'img').attr('aria-label', `${r.agree_pct}% would recommend`);
+    const g = svg.append('g').attr('transform', `translate(${R},${R})`);
+    const arc = d3.arc().innerRadius(R - 22).outerRadius(R - 4).cornerRadius(3);
+    const parts = [[r.s5, C.navy], [r.s4, C.amber], [r.s3 + r.s2 + r.s1, C.grey]].filter((p) => p[0]);
+    const pie = d3.pie().sort(null).value((p) => p[0]).padAngle(0.02);
+    g.selectAll('path').data(pie(parts)).join('path').attr('d', arc).style('fill', (d) => d.data[1]);
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '.1em').style('font-size', '38px').style('font-weight', 700).style('fill', C.ink).text(r.agree_pct + '%');
+    g.append('text').attr('text-anchor', 'middle').attr('dy', '1.9em').style('font-size', '12px').style('fill', C.muted).text('agree');
+  });
+
+  dash.draw('duration', (el) => {
+    const rows = ready('duration');
+    loading(el, 'duration');
+    el.replaceChildren();
+    if (!rows) return;
+    const W = Math.max(260, el.clientWidth), H = 220, m = { t: 22, r: 4, b: 40, l: 4 };
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Participants by session length rating');
+    const x = d3.scaleBand(rows.map((r) => r.label), [m.l, W - m.r]).padding(0.35);
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => r.n) || 1], [H - m.b, m.t]);
+    const bw = Math.min(x.bandwidth(), 40);
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', H - m.b).attr('y2', H - m.b).style('stroke', C.grey);
+    rows.forEach((r) => {
+      const cx = x(r.label) + x.bandwidth() / 2;
+      if (r.n) svg.append('rect').attr('x', cx - bw / 2).attr('width', bw).attr('y', y(r.n)).attr('height', y(0) - y(r.n)).attr('rx', 3).style('fill', r.score === 3 ? C.amber : C.navy);
+      svg.append('text').attr('x', cx).attr('y', y(r.n) - 7).attr('text-anchor', 'middle').style('fill', C.ink).style('font-size', '12px').style('font-weight', 700).text(String(r.n));
+      const lab = svg.append('text').attr('y', H - m.b + 16).attr('text-anchor', 'middle').style('fill', C.muted).style('font-size', '11px');
+      const parts = x.step() > 90 ? [r.label] : r.label.split(' ');
+      parts.forEach((p, j) => lab.append('tspan').attr('x', cx).attr('dy', j ? 13 : 0).text(p));
+    });
+  });
+
+  dash.draw('theme-bars', (el) => {
+    const rows = ready('themes');
+    loading(el, 'themes');
+    el.replaceChildren();
+    if (!rows) return;
+    const max = d3.max(rows, (r) => r.n) || 1;
+    rows.forEach((r) => {
+      const row = make('div', 'dw-hb');
+      const track = make('div', 'dw-hb-track');
+      const fill = make('div', 'dw-hb-fill t-' + (toneKey[r.tone] || 'pos'));
+      fill.style.width = (r.n / max) * 100 + '%';
+      track.append(fill);
+      row.append(make('div', null, r.theme), track, make('div', 'dw-hb-n', String(r.n)));
+      el.append(row);
+    });
+  });
+
+  dash.draw('learn-done', (el) => {
+    const rows = ready('learn');
+    loading(el, 'learn');
+    const r = rows && rows.find((x) => x.label === 'Completed');
+    el.textContent = r ? String(r.n) : '—';
+  });
+
+  dash.draw('learn-stack', (el) => {
+    const rows = ready('learn');
+    el.replaceChildren();
+    if (!rows) return;
+    const total = d3.sum(rows, (r) => r.n) || 1;
+    const fills = [C.navy, C.amber, C.grey];
+    rows.forEach((r, i) => {
+      if (!r.n) return;
+      const seg = make('div', null, String(r.n));
+      seg.style.width = (r.n / total) * 100 + '%';
+      seg.style.background = fills[i];
+      if (i > 0) seg.style.color = C.ink;
+      seg.setAttribute('aria-label', `${r.label}: ${r.n}`);
+      el.append(seg);
+    });
+  });
+
+  dash.draw('by-learn', (tb) => {
+    const rows = ready('by_learn');
+    tb.replaceChildren();
+    if (!rows) return;
+    rows.forEach((r) => {
+      const tr = make('tr');
+      tr.append(make('td', null, r.label), make('td', null, String(r.n)));
+      ['confidence', 'ease_nav', 'expectations'].forEach((k) => tr.append(make('td', null, r[k] == null ? '' : f1(r[k]))));
+      tb.append(tr);
+    });
+  });
+
+  let tone = '';
+  const open = new Set();
+  dash.draw('themes', (el) => {
+    const themes = ready('themes');
+    const fb = ready('feedback');
+    loading(el, 'themes', 'feedback');
+    el.replaceChildren();
+    if (!themes || !fb) return;
+    themes.filter((t) => !tone || t.tone === tone).forEach((t) => {
+      const card = make('article', 'dw-theme tone-' + (toneKey[t.tone] || 'pos'));
+      const head = make('div', 'dw-theme-head');
+      const left = make('div');
+      left.append(make('h3', 'dw-theme-name', t.theme), make('span', 'dw-theme-tone', `${t.tone} · ${t.responses} ${t.responses === 1 ? 'person' : 'people'}`));
+      head.append(left, make('span', 'dw-theme-count', String(t.n)));
+      const quotes = fb.filter((c) => c.theme === t.theme);
+      const showAll = open.has(t.theme);
+      const ul = make('ul', 'dw-quotes');
+      quotes.slice(0, showAll ? quotes.length : 3).forEach((c) => {
+        const li = make('li', null, c.comment);
+        li.append(make('small', null, c.question));
+        ul.append(li);
+      });
+      card.append(head, ul);
+      if (quotes.length > 3) {
+        const b = make('button', 'dw-more', showAll ? 'Show fewer' : `Show all ${quotes.length}`);
+        b.type = 'button';
+        b.addEventListener('click', () => { showAll ? open.delete(t.theme) : open.add(t.theme); dash.draw('themes'); });
+        card.append(b);
+      }
+      el.append(card);
+    });
+  });
+
+  document.querySelectorAll('.dw-chip').forEach((btn) => btn.addEventListener('click', () => {
+    tone = btn.dataset.tone || '';
+    document.querySelectorAll('.dw-chip').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    dash.draw('themes');
+  }));
+
+  const cmpRow = (el) => {
+    const rows = ready('compare');
+    const item = (el.getAttribute('data-where') || '').split('=')[1];
+    return rows && rows.find((x) => x.item === item);
+  };
+  dash.draw('cmp', (el) => {
+    loading(el, 'compare');
+    const r = cmpRow(el);
+    const field = el.getAttribute('data-field');
+    el.textContent = r && r[field] != null ? (field.endsWith('mean') ? f1(r[field]) : String(r[field])) : '—';
+  });
+  dash.draw('cmp-delta', (el) => {
+    const r = cmpRow(el);
+    const field = el.getAttribute('data-field');
+    const v = r ? (field === 'delta_mean_label' ? r.delta_mean : r.delta_agree) : 0;
+    el.classList.toggle('is-up', !!r && v > 0);
+    el.classList.toggle('is-down', !!r && v < 0);
+    el.textContent = r ? r[field] : '—';
+  });
+  dash.draw('cmp-meta', (el) => {
+    const rows = ready('cmp_meta');
+    const ws = (el.getAttribute('data-where') || '').split('=')[1];
+    const r = rows && rows.find((x) => x.workshop === ws);
+    el.textContent = r ? String(r[el.getAttribute('data-field')]) : '—';
+  });
+  dash.draw('cmp-sum', (el) => {
+    const rows = ready('cmp_summary');
+    el.textContent = rows ? String(rows[0][el.getAttribute('data-field')]) : '—';
+  });
+
+  // Dumbbell: one row per statement, a dot for each workshop's average joined by a line.
+  dash.draw('dumbbell', (el) => {
+    const all = ready('compare');
+    loading(el, 'compare');
+    el.replaceChildren();
+    if (!all) return;
+    const rows = all.filter((r) => r.kind === 'rating' && r.w1_mean != null && r.w2_mean != null);
+    if (!rows.length) return;
+    const lo = Math.max(1, Math.floor(d3.min(rows, (r) => Math.min(r.w1_mean, r.w2_mean)) * 2) / 2 - 0.5);
+    const x = d3.scaleLinear([lo, 5], [0, 100]);
+    const ticks = d3.range(lo, 5.001, 0.5);
+    const tip = make('div', 'dw-tip');
+    tip.hidden = true;
+    const axis = make('div', 'dw-db-axis');
+    const tk = make('div', 'dw-db-ticks');
+    ticks.forEach((t) => { const s = make('span', null, f1(t)); s.style.left = x(t) + '%'; tk.append(s); });
+    axis.append(make('div'), tk, make('div'));
+    el.append(axis);
+    d3.groups(rows, (r) => r.group).forEach(([group, items]) => {
+      const g = make('div', 'dw-db-group');
+      g.append(make('div', 'dw-db-gh', group));
+      items.forEach((r) => {
+        const row = make('div', 'dw-db-row');
+        const track = make('div', 'dw-db-track');
+        ticks.forEach((t) => { const gl = make('div', 'dw-db-grid'); gl.style.left = x(t) + '%'; track.append(gl); });
+        const line = make('div', 'dw-db-line');
+        line.style.left = x(Math.min(r.w1_mean, r.w2_mean)) + '%';
+        line.style.width = Math.abs(x(r.w2_mean) - x(r.w1_mean)) + '%';
+        track.append(line);
+        [['Workshop 1', r.w1_mean, r.w1_n, r.w1_agree_pct, C.amber], ['Workshop 2', r.w2_mean, r.w2_n, r.w2_agree_pct, C.navy]].forEach(([name, m, n, a, col]) => {
+          const dot = make('div', 'dw-db-dot');
+          dot.style.left = x(m) + '%';
+          dot.style.background = col;
+          dot.addEventListener('mouseenter', () => {
+            const sw = make('i');
+            sw.style.background = col;
+            const line1 = make('div');
+            line1.append(sw, document.createTextNode(`${name}: ${f1(m)} average`));
+            tip.replaceChildren(make('div', 'dw-tip-k', r.label), line1, make('div', 'dw-tip-k', `${a}% agree · ${n} answered`));
+            tip.hidden = false;
+          });
+          dot.addEventListener('mousemove', (e) => placeTip(tip, el, e));
+          dot.addEventListener('mouseleave', () => { tip.hidden = true; });
+          track.append(dot);
+        });
+        const d = make('div', 'dw-db-d' + (r.delta_mean > 0 ? ' is-up' : r.delta_mean < 0 ? ' is-down' : ''), r.delta_mean === 0 ? '0.0' : r.delta_mean_label);
+        row.append(make('div', 'dw-db-label', r.label), track, d);
+        g.append(row);
+      });
+      el.append(g);
+    });
+    el.append(tip);
+  });
+
+  dash.draw('cmp-stack', (el) => {
+    const all = ready('cmp_dist');
+    loading(el, 'cmp_dist');
+    el.replaceChildren();
+    if (!all) return;
+    const kind = el.dataset.kind;
+    const fills = kind === 'duration'
+      ? [['c1', C.coral, '#fff'], ['c2', C.coralSoft, C.ink], ['c3', C.navy, '#fff'], ['c4', '#fde7bf', C.ink], ['c5', C.amber, C.ink]]
+      : [['c1', C.navy, '#fff'], ['c2', C.amber, C.ink], ['c3', C.grey, C.ink]];
+    all.filter((r) => r.kind === kind).forEach((r) => {
+      const row = make('div', 'dw-cstack-row');
+      const lab = make('div', 'dw-cstack-label');
+      lab.append(make('span', null, kind === 'module' ? `${r.workshop} · ${r.platform}` : r.workshop), make('span', null, `${r.n} responses`));
+      const bar = make('div', 'dw-cstack-bar');
+      fills.forEach(([k, bg, fg]) => {
+        if (!r[k]) return;
+        const seg = make('div', null, r[k] / r.n >= 0.08 ? pct(r[k] / r.n) : '');
+        seg.style.width = (r[k] / r.n) * 100 + '%';
+        seg.style.background = bg;
+        seg.style.color = fg;
+        bar.append(seg);
+      });
+      row.append(lab, bar);
+      el.append(row);
+    });
+  });
+
+  const navs = () => document.querySelectorAll('.dw-nav button');
+  const go = (id) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    dash.setLink(id);
+    navs().forEach((b) => b.setAttribute('aria-current', String(b.dataset.target === id)));
+  };
+  navs().forEach((b) => b.addEventListener('click', () => go(b.dataset.target)));
+  const named = location.hash.slice(1);
+  if (['session', 'learn', 'compare', 'comments'].includes(named)) setTimeout(() => go(named), 300);
+</script>
+
+</div>
+</body>
+</html>

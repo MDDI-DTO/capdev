@@ -1,0 +1,46 @@
+comment_id,response_id,question,comment,theme,tone
+c01,6ae1bee283201f9120ca5d79,Experience with Genie,Very useful!,Genie and AI skills are useful,Positive
+c02,6ae1bee283201f9120ca5d79,What made DAP easy,Genie,Genie and AI skills are useful,Positive
+c03,6ae1bee207082a3f767c40cc,Experience with Genie,Great feature,Genie and AI skills are useful,Positive
+c04,6ae1bf0fdfab31ef81a81c32,Experience with Genie,Amazing,Genie and AI skills are useful,Positive
+c05,6ae1bf0fdfab31ef81a81c32,What made DAP easy,User friendly,DAP is easy to use,Positive
+c06,6ae1bf0fdfab31ef81a81c32,Other feedback,It was fun!,Engaging teaching and facilitators,Positive
+c07,6ae1bf182d732b76dd5bc143,Experience with Genie,Useful but slow.,Genie is slow or hard to follow,Concern
+c08,6ae1bf182d732b76dd5bc143,Other feedback,More time and smaller group,Session length and format,Suggestion
+c09,6ae1bf1bd1418a4d9cbea36d,Experience with Genie,It was easy to use and toggle around.,Genie and AI skills are useful,Positive
+c10,6ae1bf1bd1418a4d9cbea36d,What made DAP easy,The AI function,Genie and AI skills are useful,Positive
+c11,6ae1bf25dfab31ef81a821fe,Experience with Genie,Good!,Genie and AI skills are useful,Positive
+c12,6ae1bf25dfab31ef81a821fe,What made DAP easy,AI function is easy to navigate,Genie and AI skills are useful,Positive
+c13,6ae1bf25dfab31ef81a821fe,Other feedback,Shorten the training,Session length and format,Suggestion
+c14,6ae1bf27c50ddfd616f4e6cc,Experience with Genie,Great. It’s so much easier now to analyse data,Genie and AI skills are useful,Positive
+c15,6ae1bf27c50ddfd616f4e6cc,What made DAP easy,Genie function to clean up data better,Genie and AI skills are useful,Positive
+c16,6ae1bf27c50ddfd616f4e6cc,Other feedback,Sharepoint to share training materials,"Resources, access and logistics",Suggestion
+c17,6ae1bf462d732b76dd5bcfaf,Experience with Genie,It’s very useful.,Genie and AI skills are useful,Positive
+c18,6ae1bf462d732b76dd5bcfaf,What made DAP easy,I think with genie it is much easier to use.,Genie and AI skills are useful,Positive
+c19,6ae1bf4dc50ddfd616f4f386,Experience with Genie,Look forward to using it on real use case,Genie and AI skills are useful,Positive
+c20,6ae1bf4dc50ddfd616f4f386,What made DAP easy,Genie,Genie and AI skills are useful,Positive
+c21,6ae1bf4dc50ddfd616f4f386,Other feedback,Thank you Shanice and DTO colleagues for the session! It has been very helpful!,Engaging teaching and facilitators,Positive
+c22,6ae1bf5507082a3f767c6518,Experience with Genie,"Great, very easy to use for people without coding experience",Genie and AI skills are useful,Positive
+c23,6ae1bf5507082a3f767c6518,What made DAP easy,"User friendly, easy to navigate and find what's needed",DAP is easy to use,Positive
+c24,6ae1bf5507082a3f767c6518,Other feedback,I love how the theory was incorporated while we try out the system rather than having a full theory section which can be very dry,Engaging teaching and facilitators,Positive
+c25,6ae1bf610ea5a17817310ac4,Experience with Genie,Good,Genie and AI skills are useful,Positive
+c26,6ae1bf610ea5a17817310ac4,What made DAP easy,In-built DAP genie and DAP buddy skills,Genie and AI skills are useful,Positive
+c27,6ae1bf62e1f29a0d1df19771,Experience with Genie,"quite slow, but useful especially with the skills dap-doctor and dap-buddy",Genie is slow or hard to follow,Concern
+c28,6ae1bf62e1f29a0d1df19771,What made DAP easy,instructions given helped a lot. DAP itself is quite difficult to navigate with many foreign terms,DAP feels complex to navigate,Concern
+c29,6ae1bf62e1f29a0d1df19771,Other feedback,thank you for the snacks🫶🫶 having it theme-ed was so cute but my laptop has many crumbs now😢 perhaps cutlery could have been provided since the workshop is quite hands on,"Resources, access and logistics",Suggestion
+c30,6ae1bf6ddfab31ef81a83bd7,Experience with Genie,"Pretty okay, just that SOMETIMES it may not be most easy to understand in terms of plain language.",Genie is slow or hard to follow,Concern
+c31,6ae1bf6ddfab31ef81a83bd7,Other feedback,"I think the group sizing is just right, shouldn’t add any further if not it will be hard for the coaches and learners to have 1-1 guidance.",Session length and format,Suggestion
+c32,6ae1bf820fb7d5e34867ad93,Experience with Genie,"Great, very helpful for beginners! Can take quite a while to load but understand that this is due to the number of concurrent users during the workshop.",Genie is slow or hard to follow,Concern
+c33,6ae1bf820fb7d5e34867ad93,Other feedback,thank you for organising this!,Engaging teaching and facilitators,Positive
+c34,6ae1bf9911363b15a9c66f95,Experience with Genie,Useful to guide new user,Genie and AI skills are useful,Positive
+c35,6ae1bf9911363b15a9c66f95,What made DAP easy,Application is easy to navigate and guidance from dto,DAP is easy to use,Positive
+c36,6ae1bf9911363b15a9c66f95,Other feedback,Hope the genie can be rolled out soon,"Resources, access and logistics",Suggestion
+c37,6ae1c0520fb7d5e34867ea07,Experience with Genie,"Complicated not easy to pick up in one sitting, and without continous use.",Genie is slow or hard to follow,Concern
+c38,6ae1c0520fb7d5e34867ea07,How to make DAP easier,Tutorial resources; grant access to play around with actual datasets,"Resources, access and logistics",Suggestion
+c39,6ae1c0520fb7d5e34867ea07,Other feedback,Shorter - 3 hours is too long. Break into separate sessions.,Session length and format,Suggestion
+c40,6ae1c1f9f67d13db8bb9ed53,Experience with Genie,"Fun, but very technical. Not sure how much I will use in my daily work",Genie is slow or hard to follow,Concern
+c41,6ae1c1f9f67d13db8bb9ed53,How to make DAP easier,"Currently too many features, options, multiple menu trees and difficulty to understand what each function does without a deeper technical understanding of the system, so it’s a bit daunting to use",DAP feels complex to navigate,Concern
+c42,6ae1c1f9f67d13db8bb9ed53,Other feedback,Thanks for making the workshop fun for an otherwise dry topic!,Engaging teaching and facilitators,Positive
+c43,6ae1ef780a982beda673468c,Experience with Genie,"TERRIFIC this would've been a killer back in my own data analytics class in uni. But the best part was the data-doctor data-cleaning skill that your team did - good data analytics starts from good data, and not everyone knows how to get raw (bronze) data to good (gold) data so to be able to build upon the team's vast data analytics experience was great",Genie and AI skills are useful,Positive
+c44,6ae1ef780a982beda673468c,What made DAP easy,"The pre-learning module was a good intro, but the workshop itself didn't assume we all did the module and helped explain bit by bit!",Engaging teaching and facilitators,Positive
+c45,6ae1ef780a982beda673468c,Other feedback,"You guys did well!! It was entertaining, insightful, and both the tools and the coordinators helped ensure the 'Ohana' vibe where no one was left behind. Kudos for a successful first session - telling my colleagues to sign up for the next batch!",Engaging teaching and facilitators,Positive
